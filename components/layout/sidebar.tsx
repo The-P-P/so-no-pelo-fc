@@ -2,58 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Trophy,
-  Users,
-  CalendarDays,
-  Shield,
-  LogOut,
-  Menu,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { formatPhoneDisplay } from "@/lib/phone";
+import {
+  SIDEBAR_NAV_ITEMS,
+  filterNavItems,
+  isNavItemActive,
+} from "@/lib/navigation";
 import type { Profile, TeamRole } from "@/types";
-
-const NAV_ITEMS: {
-  title: string;
-  href: string;
-  icon: typeof Shield;
-  adminOnly?: boolean;
-}[] = [
-  {
-    title: "Grupo",
-    href: "/dashboard",
-    icon: Shield,
-  },
-  {
-    title: "Peladas",
-    href: "/dashboard/peladas",
-    icon: CalendarDays,
-  },
-  {
-    title: "Ranking",
-    href: "/dashboard/ranking",
-    icon: Trophy,
-  },
-  {
-    title: "Membros",
-    href: "/dashboard/membros",
-    icon: Users,
-    adminOnly: true,
-  },
-];
 
 interface SidebarProps {
   user: Pick<Profile, "full_name" | "email" | "phone" | "avatar_url">;
@@ -65,8 +27,7 @@ function SidebarContent({
   user,
   teamName,
   userRole,
-  onNavigate,
-}: SidebarProps & { onNavigate?: () => void }) {
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -88,13 +49,10 @@ function SidebarContent({
     router.refresh();
   }
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => !item.adminOnly || userRole === "owner" || userRole === "admin"
-  );
+  const visibleItems = filterNavItems(SIDEBAR_NAV_ITEMS, userRole);
 
   return (
     <div className="flex h-full flex-col">
-      {/* Logo / Grupo */}
       <div className="px-4 py-6">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground">
@@ -113,19 +71,14 @@ function SidebarContent({
 
       <Separator />
 
-      {/* Navegação */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {visibleItems.map((item) => {
-          const isActive =
-            item.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname.startsWith(item.href);
+          const isActive = isNavItemActive(pathname, item.href);
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
@@ -142,9 +95,11 @@ function SidebarContent({
 
       <Separator />
 
-      {/* Usuário */}
       <div className="p-4">
-        <div className="mb-3 flex items-center gap-3">
+        <Link
+          href="/dashboard/perfil"
+          className="mb-3 flex items-center gap-3 rounded-lg p-1 transition-colors hover:bg-muted"
+        >
           <Avatar className="h-9 w-9">
             <AvatarImage src={user.avatar_url ?? undefined} />
             <AvatarFallback className="bg-primary/20 text-xs text-primary">
@@ -155,11 +110,9 @@ function SidebarContent({
             <p className="truncate text-sm font-medium">
               {user.full_name ?? "Jogador"}
             </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {contact}
-            </p>
+            <p className="truncate text-xs text-muted-foreground">{contact}</p>
           </div>
-        </div>
+        </Link>
         <Button
           variant="ghost"
           size="sm"
@@ -176,35 +129,8 @@ function SidebarContent({
 
 export function Sidebar(props: SidebarProps) {
   return (
-    <>
-      {/* Desktop sidebar */}
-      <aside className="hidden w-64 shrink-0 border-r border-border bg-card/50 md:flex md:flex-col">
-        <SidebarContent {...props} />
-      </aside>
-
-      {/* Mobile sidebar */}
-      <div className="flex items-center border-b border-border bg-card/50 px-4 py-3 md:hidden">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Abrir menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Menu</SheetTitle>
-            </SheetHeader>
-            <SidebarContent {...props} />
-          </SheetContent>
-        </Sheet>
-        <div className="ml-3 flex items-center gap-2">
-          <span className="text-lg">⚽</span>
-          <span className="font-bold">
-            {props.teamName ?? "Só no Pelo FC"}
-          </span>
-        </div>
-      </div>
-    </>
+    <aside className="hidden w-64 shrink-0 border-r border-border bg-card/50 md:flex md:flex-col">
+      <SidebarContent {...props} />
+    </aside>
   );
 }

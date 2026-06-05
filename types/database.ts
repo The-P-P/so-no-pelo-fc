@@ -224,6 +224,43 @@ export interface Database {
           },
         ];
       };
+      pelada_attendance: {
+        Row: {
+          id: string;
+          pelada_id: string;
+          user_id: string;
+          present: boolean;
+          marked_by: string;
+          marked_at: string;
+        };
+        Insert: {
+          id?: string;
+          pelada_id: string;
+          user_id: string;
+          present?: boolean;
+          marked_by: string;
+          marked_at?: string;
+        };
+        Update: {
+          present?: boolean;
+          marked_by?: string;
+          marked_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pelada_attendance_pelada_id_fkey";
+            columns: ["pelada_id"];
+            referencedRelation: "peladas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pelada_attendance_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       player_stats: {
         Row: {
           id: string;

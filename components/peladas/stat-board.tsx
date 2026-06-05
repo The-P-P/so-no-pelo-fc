@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { incrementStat } from "@/lib/actions/pelada-actions";
 import { STAT_EMOJIS, STAT_LABELS, type StatField } from "@/lib/stats";
 import { Button } from "@/components/ui/button";
@@ -32,17 +32,25 @@ function StatButton({
   participant,
   field,
   value,
+  onError,
 }: {
   peladaId: string;
   participant: Participant;
   field: StatField;
   value: number;
+  onError: (message: string) => void;
 }) {
   const [pending, startTransition] = useTransition();
 
   function handleIncrement() {
     startTransition(async () => {
-      await incrementStat(peladaId, participant.id, participant.type, field);
+      const result = await incrementStat(
+        peladaId,
+        participant.id,
+        participant.type,
+        field
+      );
+      if (result.error) onError(result.error);
     });
   }
 
@@ -65,6 +73,8 @@ function StatButton({
 }
 
 export function StatBoard({ peladaId, participants, stats }: StatBoardProps) {
+  const [error, setError] = useState<string | null>(null);
+
   if (participants.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -76,6 +86,11 @@ export function StatBoard({ peladaId, participants, stats }: StatBoardProps) {
 
   return (
     <div className="space-y-4">
+      {error && (
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
       {participants.map((participant) => {
         const displayName = participant.nickname ?? participant.displayName;
 
@@ -100,6 +115,7 @@ export function StatBoard({ peladaId, participants, stats }: StatBoardProps) {
                   participant={participant}
                   field={field}
                   value={getStatValue(stats, participant, field)}
+                  onError={setError}
                 />
               ))}
             </div>

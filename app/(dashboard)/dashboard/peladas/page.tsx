@@ -13,15 +13,11 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
+import { getPeladaSubtitle, getPeladaTitle } from "@/lib/peladas";
 
 export const metadata = {
   title: "Peladas | Só no Pelo FC",
 };
-
-function formatDate(dateStr: string) {
-  const [year, month, day] = dateStr.split("-");
-  return `${day}/${month}/${year}`;
-}
 
 export default async function PeladasPage() {
   const { team, role } = await getDashboardContext();
@@ -80,20 +76,19 @@ export default async function PeladasPage() {
                 <Button
                   key={pelada.id}
                   variant="outline"
-                  className="h-auto w-full justify-between px-4 py-3"
+                  className="h-auto w-full items-start justify-between gap-3 whitespace-normal px-4 py-3"
                   asChild
                 >
                   <Link href={`/dashboard/peladas/${pelada.id}`}>
-                    <div className="text-left">
-                      <p className="font-medium">
-                        vs {pelada.opponent}
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="break-words font-medium">
+                        {getPeladaTitle(pelada)}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(pelada.date)}
-                        {pelada.location && ` · ${pelada.location}`}
+                      <p className="break-words text-xs text-muted-foreground">
+                        {getPeladaSubtitle(pelada)}
                       </p>
                     </div>
-                    <ChevronRight className="h-4 w-4 shrink-0" />
+                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0" />
                   </Link>
                 </Button>
               ))

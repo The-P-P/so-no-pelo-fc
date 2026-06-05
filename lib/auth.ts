@@ -70,49 +70,94 @@ export async function ensureProfile(): Promise<Profile | null> {
   return getCurrentProfile();
 }
 
-/** Busca o primeiro time do usuário (fase inicial — depois teremos seletor) */
-export async function getCurrentTeamMembership(): Promise<{
+export type TeamMembershipWithTeam = {
   team: Team;
   membership: TeamMember;
-} | null> {
+};
+
+function mapMembershipRow(data: {
+  id: string;
+  team_id: string;
+  user_id: string;
+  role: string;
+  nickname: string | null;
+  joined_at: string;
+  team: Team | null;
+}): TeamMembershipWithTeam | null {
+  if (!data.team) return null;
+
+  return {
+    team: data.team,
+    membership: {
+      id: data.id,
+      team_id: data.team_id,
+      user_id: data.user_id,
+      role: data.role,
+      nickname: data.nickname,
+      joined_at: data.joined_at,
+    } as TeamMember,
+  };
+}
+
+/** Lista todos os grupos do usuário */
+export async function getUserTeamMemberships(): Promise<
+  TeamMembershipWithTeam[]
+> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) return [];
 
   const { data } = await supabase
     .from("team_members")
     .select("*, team:teams(*)")
     .eq("user_id", user.id)
-    .order("joined_at", { ascending: true })
-    .limit(1)
-    .single();
+    .order("joined_at", { ascending: true });
 
-  if (!data || !data.team) return null;
+  if (!data) return [];
 
-  const team = data.team as unknown as Team;
-  const membership = {
-    id: data.id,
-    team_id: data.team_id,
-    user_id: data.user_id,
-    role: data.role,
-    nickname: data.nickname,
-    joined_at: data.joined_at,
-  } as TeamMember;
+  return data
+    .map((row) =>
+      mapMembershipRow({
+        ...row,
+        team: row.team as unknown as Team | null,
+      })
+    )
+    .filter((item): item is TeamMembershipWithTeam => item !== null);
+}
 
-  return { team, membership };
+/** Busca o grupo ativo (cookie) ou o primeiro do usuário */
+export async function getCurrentTeamMembership(): Promise<TeamMembershipWithTeam | null> {
+  const { getActiveTeamIdFromCookie } = await import("@/lib/team-cookie");
+  const activeTeamId = await getActiveTeamIdFromCookie();
+  const memberships = await getUserTeamMemberships();
+
+  if (memberships.length === 0) return null;
+
+  if (activeTeamId) {
+    const active = memberships.find((m) => m.team.id === activeTeamId);
+    if (active) return active;
+  }
+
+  return memberships[0];
 }
 
 /** Dados completos para o layout do dashboard */
 export async function getDashboardContext() {
   const profile = await ensureProfile();
+  const memberships = await getUserTeamMemberships();
   const teamData = await getCurrentTeamMembership();
 
   return {
     profile,
     team: teamData?.team ?? null,
     role: (teamData?.membership.role ?? "player") as TeamRole,
+    nickname: teamData?.membership.nickname ?? null,
+    teams: memberships.map((m) => ({
+      team: m.team,
+      role: m.membership.role as TeamRole,
+    })),
   };
 }

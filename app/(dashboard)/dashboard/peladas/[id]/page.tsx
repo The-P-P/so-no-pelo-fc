@@ -9,6 +9,9 @@ import {
   getPeladaStats,
   getParticipants,
 } from "@/lib/actions/pelada-actions";
+import { getAttendanceMembers } from "@/lib/actions/attendance-actions";
+import { AttendanceBoard } from "@/components/peladas/attendance-board";
+import { getPeladaSubtitle, getPeladaTitle } from "@/lib/peladas";
 import { getTeamPermissions } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,16 +26,11 @@ interface PeladaDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-function formatDate(dateStr: string) {
-  const [year, month, day] = dateStr.split("-");
-  return `${day}/${month}/${year}`;
-}
-
 export default async function PeladaDetailPage({
   params,
 }: PeladaDetailPageProps) {
   const { id } = await params;
-  const { team, role } = await getDashboardContext();
+  const { team, role, profile } = await getDashboardContext();
 
   if (!team) notFound();
 
@@ -40,16 +38,24 @@ export default async function PeladaDetailPage({
   if (!pelada || pelada.team_id !== team.id) notFound();
 
   const permissions = getTeamPermissions(role);
-  const [participants, stats] = await Promise.all([
+  const [participants, stats, attendanceMembers] = await Promise.all([
     getParticipants(team.id),
     getPeladaStats(id),
+    getAttendanceMembers(team.id, id),
   ]);
+
+  const presentUserIds = new Set(
+    attendanceMembers.filter((m) => m.present).map((m) => m.userId)
+  );
+  const filteredParticipants = participants.filter(
+    (p) => p.type === "fictional" || presentUserIds.has(p.id)
+  );
 
   return (
     <div>
       <Header
-        title={`vs ${pelada.opponent}`}
-        description={`${formatDate(pelada.date)}${pelada.location ? ` · ${pelada.location}` : ""}`}
+        title={getPeladaTitle(pelada)}
+        description={getPeladaSubtitle(pelada)}
         action={
           <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard/peladas">
@@ -60,21 +66,46 @@ export default async function PeladaDetailPage({
         }
       />
 
-      <div className="p-6">
+      <div className="space-y-6 p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Presença</CardTitle>
+            <CardDescription>
+              Marque quem vai pra bola — nem sempre o grupo inteiro joga
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AttendanceBoard
+              peladaId={id}
+              members={attendanceMembers}
+              currentUserId={profile?.id ?? ""}
+              canManageOthers={permissions.canApproveStats}
+            />
+          </CardContent>
+        </Card>
+
         {permissions.canApproveStats ? (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Estatísticas</CardTitle>
               <CardDescription>
-                Toque em +1 para registrar gol, assistência, god save ou deu o cu
+                Toque em +1 para registrar gol, assistência, god save ou deu o
+                cu — só quem confirmou presença aparece aqui
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <StatBoard
-                peladaId={id}
-                participants={participants}
-                stats={stats}
-              />
+              {filteredParticipants.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Ninguém confirmou presença ainda. Marque quem vai jogar
+                  antes de lançar as stats.
+                </p>
+              ) : (
+                <StatBoard
+                  peladaId={id}
+                  participants={filteredParticipants}
+                  stats={stats}
+                />
+              )}
             </CardContent>
           </Card>
         ) : (

@@ -98,13 +98,10 @@ export async function createPelada(
 
   const user = await requireUser();
   const date = formData.get("date") as string;
-  const opponent = (formData.get("opponent") as string)?.trim();
   const location = (formData.get("location") as string)?.trim();
+  const description = (formData.get("description") as string)?.trim();
 
   if (!date) return { error: "Informe a data da pelada." };
-  if (!opponent || opponent.length < 2) {
-    return { error: "Informe o adversário (ou 'Treino')." };
-  }
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -112,8 +109,9 @@ export async function createPelada(
     .insert({
       team_id: team.id,
       date,
-      opponent,
+      opponent: "Pelada",
       location: location || null,
+      notes: description || null,
       created_by: user.id,
     })
     .select("id")
@@ -147,6 +145,19 @@ export async function incrementStat(
 
   const isMember = participantType === "member";
   const filterCol = isMember ? "user_id" : "fictional_player_id";
+
+  if (isMember) {
+    const { data: attendance } = await supabase
+      .from("pelada_attendance")
+      .select("present")
+      .eq("pelada_id", peladaId)
+      .eq("user_id", participantId)
+      .maybeSingle();
+
+    if (!attendance?.present) {
+      return { error: "Jogador precisa confirmar presença antes das stats." };
+    }
+  }
 
   const { data: existing } = await supabase
     .from("player_stats")

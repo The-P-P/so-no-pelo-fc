@@ -13,6 +13,8 @@ export type FictionalPlayer =
 export type TeamStatWeights =
   Database["public"]["Tables"]["team_stat_weights"]["Row"];
 export type Pelada = Database["public"]["Tables"]["peladas"]["Row"];
+export type PeladaAttendance =
+  Database["public"]["Tables"]["pelada_attendance"]["Row"];
 export type PlayerStat = Database["public"]["Tables"]["player_stats"]["Row"];
 export type RankingGeral = Database["public"]["Views"]["ranking_geral"]["Row"];
 export type RankingPelada = Database["public"]["Views"]["ranking_pelada"]["Row"];
@@ -24,6 +26,21 @@ export type Participant = {
   type: ParticipantType;
   displayName: string;
   nickname: string | null;
+};
+
+export type AttendanceMember = {
+  userId: string;
+  displayName: string;
+  nickname: string | null;
+  avatarUrl: string | null;
+  present: boolean;
+  hasMarked: boolean;
+};
+
+export type RankingEntry = RankingGeral & {
+  displayName: string;
+  score: number;
+  total_peladas: number;
 };
 
 // Tipos compostos (joins frequentes)
@@ -93,11 +110,8 @@ export type OtpVerifyFormData = {
 
 export type CreatePeladaFormData = {
   date: string;
-  opponent: string;
-  scoreHome: number;
-  scoreAway: number;
   location?: string;
-  notes?: string;
+  description?: string;
 };
 
 export type PlayerStatFormData = {

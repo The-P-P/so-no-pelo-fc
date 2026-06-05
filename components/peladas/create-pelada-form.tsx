@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 const initialState: PeladaActionResult = {};
 
@@ -24,7 +25,7 @@ export function CreatePeladaForm() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="date">Data</Label>
           <Input
@@ -37,18 +38,7 @@ export function CreatePeladaForm() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="opponent">Adversário</Label>
-          <Input
-            id="opponent"
-            name="opponent"
-            placeholder="Treino"
-            required
-            minLength={2}
-            disabled={pending}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="location">Local (opcional)</Label>
+          <Label htmlFor="location">Local</Label>
           <Input
             id="location"
             name="location"
@@ -56,6 +46,20 @@ export function CreatePeladaForm() {
             disabled={pending}
           />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Descrição</Label>
+        <textarea
+          id="description"
+          name="description"
+          rows={3}
+          placeholder="Treino de quinta, pelada com os amigos..."
+          disabled={pending}
+          className={cn(
+            "flex w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+          )}
+        />
       </div>
 
       <Button type="submit" size="sm" disabled={pending}>
