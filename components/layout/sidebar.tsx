@@ -33,7 +33,7 @@ const NAV_ITEMS: {
   adminOnly?: boolean;
 }[] = [
   {
-    title: "Time",
+    title: "Grupo",
     href: "/dashboard",
     icon: Shield,
   },
@@ -94,7 +94,7 @@ function SidebarContent({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Logo / Time */}
+      {/* Logo / Grupo */}
       <div className="px-4 py-6">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground">

@@ -45,6 +45,8 @@ export interface Database {
           slug: string;
           description: string | null;
           logo_url: string | null;
+          player_invite_token: string;
+          admin_invite_token: string;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -55,6 +57,8 @@ export interface Database {
           slug: string;
           description?: string | null;
           logo_url?: string | null;
+          player_invite_token?: string;
+          admin_invite_token?: string;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -111,6 +115,70 @@ export interface Database {
           },
         ];
       };
+      fictional_players: {
+        Row: {
+          id: string;
+          team_id: string;
+          display_name: string;
+          nickname: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_id: string;
+          display_name: string;
+          nickname?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          display_name?: string;
+          nickname?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fictional_players_team_id_fkey";
+            columns: ["team_id"];
+            referencedRelation: "teams";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      team_stat_weights: {
+        Row: {
+          team_id: string;
+          goals: number;
+          assists: number;
+          god_saves: number;
+          vacilos: number;
+          own_goals: number;
+          updated_at: string;
+        };
+        Insert: {
+          team_id: string;
+          goals?: number;
+          assists?: number;
+          god_saves?: number;
+          vacilos?: number;
+          own_goals?: number;
+          updated_at?: string;
+        };
+        Update: {
+          goals?: number;
+          assists?: number;
+          god_saves?: number;
+          vacilos?: number;
+          own_goals?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "team_stat_weights_team_id_fkey";
+            columns: ["team_id"];
+            referencedRelation: "teams";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       peladas: {
         Row: {
           id: string;
@@ -160,9 +228,11 @@ export interface Database {
         Row: {
           id: string;
           pelada_id: string;
-          user_id: string;
+          user_id: string | null;
+          fictional_player_id: string | null;
           goals: number;
           assists: number;
+          god_saves: number;
           own_goals: number;
           vacilos: number;
           vacilo_description: string | null;
@@ -176,9 +246,11 @@ export interface Database {
         Insert: {
           id?: string;
           pelada_id: string;
-          user_id: string;
+          user_id?: string | null;
+          fictional_player_id?: string | null;
           goals?: number;
           assists?: number;
+          god_saves?: number;
           own_goals?: number;
           vacilos?: number;
           vacilo_description?: string | null;
@@ -188,6 +260,7 @@ export interface Database {
         Update: {
           goals?: number;
           assists?: number;
+          god_saves?: number;
           own_goals?: number;
           vacilos?: number;
           vacilo_description?: string | null;
@@ -210,12 +283,14 @@ export interface Database {
       ranking_geral: {
         Row: {
           team_id: string;
-          user_id: string;
+          participant_id: string;
+          participant_type: string;
           full_name: string | null;
           avatar_url: string | null;
           nickname: string | null;
           total_goals: number;
           total_assists: number;
+          total_god_saves: number;
           total_own_goals: number;
           total_vacilos: number;
           peladas_jogadas: number;
@@ -226,12 +301,14 @@ export interface Database {
         Row: {
           pelada_id: string;
           team_id: string;
-          user_id: string;
+          participant_id: string;
+          participant_type: string;
           full_name: string | null;
           avatar_url: string | null;
           nickname: string | null;
           goals: number;
           assists: number;
+          god_saves: number;
           own_goals: number;
           vacilos: number;
           vacilo_description: string | null;
@@ -252,6 +329,18 @@ export interface Database {
       is_team_member: {
         Args: { p_team_id: string; p_user_id: string };
         Returns: boolean;
+      };
+      join_team_via_invite: {
+        Args: { p_token: string; p_nickname?: string | null };
+        Returns: string;
+      };
+      get_team_by_invite_token: {
+        Args: { p_token: string };
+        Returns: {
+          id: string;
+          name: string;
+          invite_role: TeamRole;
+        }[];
       };
     };
     Enums: {

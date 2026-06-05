@@ -1,16 +1,30 @@
 import type { Database, TeamRole, StatStatus } from "./database";
+import type { StatField } from "@/lib/stats";
 
 // Re-exporta tipos do banco
-export type { Database, TeamRole, StatStatus };
+export type { Database, TeamRole, StatStatus, StatField };
 
 // Tipos de domínio (entidades da aplicação)
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type Team = Database["public"]["Tables"]["teams"]["Row"];
 export type TeamMember = Database["public"]["Tables"]["team_members"]["Row"];
+export type FictionalPlayer =
+  Database["public"]["Tables"]["fictional_players"]["Row"];
+export type TeamStatWeights =
+  Database["public"]["Tables"]["team_stat_weights"]["Row"];
 export type Pelada = Database["public"]["Tables"]["peladas"]["Row"];
 export type PlayerStat = Database["public"]["Tables"]["player_stats"]["Row"];
 export type RankingGeral = Database["public"]["Views"]["ranking_geral"]["Row"];
 export type RankingPelada = Database["public"]["Views"]["ranking_pelada"]["Row"];
+
+export type ParticipantType = "member" | "fictional";
+
+export type Participant = {
+  id: string;
+  type: ParticipantType;
+  displayName: string;
+  nickname: string | null;
+};
 
 // Tipos compostos (joins frequentes)
 export type TeamMemberWithProfile = TeamMember & {
@@ -89,6 +103,7 @@ export type CreatePeladaFormData = {
 export type PlayerStatFormData = {
   goals: number;
   assists: number;
+  godSaves: number;
   ownGoals: number;
   vacilos: number;
   vaciloDescription?: string;
