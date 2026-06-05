@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 
 const initialState: TeamActionResult = {};
 
-type OwnerCandidate = {
+export type OwnerCandidate = {
   userId: string;
   displayName: string;
   role: "admin" | "player";

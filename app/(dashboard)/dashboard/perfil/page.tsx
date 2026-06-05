@@ -5,7 +5,7 @@ import { DeleteTeamForm } from "@/components/profile/delete-team-form";
 import { LogoutButton } from "@/components/profile/logout-button";
 import { ResetPinForm } from "@/components/profile/reset-pin-form";
 import { ThemePicker } from "@/components/profile/theme-picker";
-import { TransferOwnershipForm } from "@/components/profile/transfer-ownership-form";
+import { TransferOwnershipForm, type OwnerCandidate } from "@/components/profile/transfer-ownership-form";
 import { UpdateNameForm } from "@/components/profile/update-name-form";
 import { UpdateNicknameForm } from "@/components/profile/update-nickname-form";
 import { InviteLinks } from "@/components/teams/invite-links";
@@ -42,6 +42,14 @@ export default async function PerfilPage() {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  const ownershipCandidates: OwnerCandidate[] = members
+    .filter((m) => m.role === "admin" || m.role === "player")
+    .map((m) => ({
+      userId: m.user_id,
+      displayName: m.nickname ?? m.profile.full_name ?? "Jogador",
+      role: m.role as "admin" | "player",
+    }));
 
   return (
     <div>
@@ -180,17 +188,7 @@ export default async function PerfilPage() {
             <CardContent>
               <TransferOwnershipForm
                 teamName={team.name}
-                candidates={members
-                  .filter(
-                    (m): m is (typeof members)[number] & {
-                      role: "admin" | "player";
-                    } => m.role === "admin" || m.role === "player"
-                  )
-                  .map((m) => ({
-                    userId: m.user_id,
-                    displayName: m.nickname ?? m.profile.full_name ?? "Jogador",
-                    role: m.role,
-                  }))}
+                candidates={ownershipCandidates}
               />
             </CardContent>
           </Card>
