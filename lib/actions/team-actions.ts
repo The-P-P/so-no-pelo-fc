@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import {
   ensureProfile,
+  getDashboardContext,
   getUserTeamMemberships,
   requireUser,
 } from "@/lib/auth";
@@ -57,6 +58,11 @@ async function setActiveTeamCookie(teamId: string) {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });
+}
+
+async function clearActiveTeamCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete(ACTIVE_TEAM_COOKIE);
 }
 
 /** Cria um novo grupo — usuário vira owner automaticamente (trigger no banco) */
@@ -171,5 +177,107 @@ export async function switchActiveTeam(teamId: string): Promise<TeamActionResult
   await setActiveTeamCookie(teamId);
   revalidatePath("/dashboard");
   return { success: "Grupo alterado." };
+}
+
+/** Deleta o grupo ativo (somente dono) */
+export async function deleteTeam(
+  _prev: TeamActionResult,
+  formData: FormData
+): Promise<TeamActionResult> {
+  const user = await requireUser();
+  const { team, role } = await getDashboardContext();
+  const confirmName = (formData.get("confirmName") as string)?.trim();
+
+  if (!team) {
+    return { error: "Nenhum grupo ativo para deletar." };
+  }
+
+  if (role !== "owner") {
+    return { error: "Apenas o dono pode deletar o grupo." };
+  }
+
+  if (!confirmName || confirmName !== team.name) {
+    return { error: "Digite o nome do grupo exatamente para confirmar." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("teams")
+    .delete()
+    .eq("id", team.id)
+    .eq("created_by", user.id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  const memberships = await getUserTeamMemberships();
+  const nextTeam = memberships.find((m) => m.team.id !== team.id);
+  if (nextTeam) {
+    await setActiveTeamCookie(nextTeam.team.id);
+  } else {
+    await clearActiveTeamCookie();
+  }
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard/perfil");
+}
+
+/** Owner transfere ownership para outro membro */
+export async function transferTeamOwnership(
+  _prev: TeamActionResult,
+  formData: FormData
+): Promise<TeamActionResult> {
+  await requireUser();
+  const { team, role } = await getDashboardContext();
+  const newOwnerId = (formData.get("newOwnerId") as string | null)?.trim();
+
+  if (!team) return { error: "Nenhum grupo ativo." };
+  if (role !== "owner") return { error: "Apenas o dono pode transferir ownership." };
+  if (!newOwnerId) return { error: "Selecione o novo dono." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("transfer_team_ownership", {
+    p_team_id: team.id,
+    p_new_owner_id: newOwnerId,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/perfil");
+  return { success: "Ownership transferido com sucesso." };
+}
+
+/** Sai do grupo ativo (owner precisa transferir ownership antes) */
+export async function leaveTeam(): Promise<TeamActionResult> {
+  const user = await requireUser();
+  const { team, role } = await getDashboardContext();
+
+  if (!team) return { error: "Nenhum grupo ativo." };
+  if (role === "owner") {
+    return { error: "Owner precisa transferir ownership antes de sair do grupo." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("team_members")
+    .delete()
+    .eq("team_id", team.id)
+    .eq("user_id", user.id);
+
+  if (error) return { error: error.message };
+
+  const memberships = await getUserTeamMemberships();
+  const nextTeam = memberships.find((m) => m.team.id !== team.id);
+  if (nextTeam) {
+    await setActiveTeamCookie(nextTeam.team.id);
+  } else {
+    await clearActiveTeamCookie();
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/perfil");
+  return { success: "Você saiu do grupo." };
 }
 

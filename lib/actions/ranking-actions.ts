@@ -1,16 +1,27 @@
 "use server";
 
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getDashboardContext } from "@/lib/auth";
 import {
   calculateStatScore,
   DEFAULT_STAT_WEIGHTS,
+  STAT_FIELDS,
   type StatWeightKey,
 } from "@/lib/stats";
+import { getTeamPermissions } from "@/types";
 import type { RankingEntry, TeamStatWeights } from "@/types";
+
+export type RankingActionResult = {
+  error?: string;
+  success?: string;
+  savedAt?: number;
+};
 
 export async function getTeamStatWeights(
   teamId: string
 ): Promise<TeamStatWeights> {
+  noStore();
   const supabase = await createClient();
   const { data } = await supabase
     .from("team_stat_weights")
@@ -44,6 +55,7 @@ function toWeights(
 }
 
 export async function getRankingGeral(teamId: string): Promise<RankingEntry[]> {
+  noStore();
   const supabase = await createClient();
 
   const [{ data: rows }, weights, { count: totalPeladas }] = await Promise.all([
@@ -106,4 +118,60 @@ export async function getTopScorer(
   return members.reduce((top, curr) =>
     curr.score > top.score ? curr : top
   );
+}
+
+function parseWeight(formData: FormData, key: StatWeightKey): number | null {
+  const raw = (formData.get(key) as string | null)?.trim();
+  if (raw === "" || raw == null) return null;
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return null;
+  return Math.trunc(value);
+}
+
+export async function updateTeamStatWeights(
+  _prev: RankingActionResult,
+  formData: FormData
+): Promise<RankingActionResult> {
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canManageTeam) {
+    return { error: "Apenas admins podem alterar os pesos do ranking." };
+  }
+
+  const weights: Record<StatWeightKey, number> = {
+    goals: 0,
+    assists: 0,
+    god_saves: 0,
+    vacilos: 0,
+    own_goals: 0,
+  };
+
+  for (const key of STAT_FIELDS) {
+    const value = parseWeight(formData, key);
+    if (value === null) {
+      return { error: `Peso inválido para ${key}.` };
+    }
+    weights[key] = value;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("team_stat_weights")
+    .upsert({
+      team_id: team.id,
+      ...weights,
+      updated_at: new Date().toISOString(),
+    });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/ranking");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/peladas");
+  return {
+    success: "Pesos do ranking atualizados!",
+    savedAt: Date.now(),
+  };
 }

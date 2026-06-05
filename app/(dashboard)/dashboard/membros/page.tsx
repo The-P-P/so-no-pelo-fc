@@ -1,12 +1,13 @@
 import { Header } from "@/components/layout/header";
 import { AddFictionalForm } from "@/components/members/add-fictional-form";
 import { FictionalPlayerRow } from "@/components/members/fictional-player-row";
+import { MemberRow } from "@/components/members/member-row";
 import { getDashboardContext } from "@/lib/auth";
 import {
   getTeamMembers,
   getFictionalPlayers,
 } from "@/lib/actions/member-actions";
-import { getTeamPermissions, ROLE_LABELS } from "@/types";
+import { getTeamPermissions } from "@/types";
 import {
   Card,
   CardContent,
@@ -14,14 +15,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const metadata = {
   title: "Membros | Só no Pelo FC",
 };
 
 export default async function MembrosPage() {
-  const { team, role } = await getDashboardContext();
+  const { team, role, profile } = await getDashboardContext();
   const permissions = getTeamPermissions(role);
 
   if (!team) {
@@ -53,7 +53,11 @@ export default async function MembrosPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Elenco ({members.length})</CardTitle>
-            <CardDescription>Membros reais do grupo</CardDescription>
+            <CardDescription>
+              {permissions.canManageMembers
+                ? "Promova admins, rebaixe ou remova membros do grupo."
+                : "Membros reais do grupo"}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {members.length === 0 ? (
@@ -61,45 +65,15 @@ export default async function MembrosPage() {
                 Nenhum membro ainda. Convide a galera!
               </p>
             ) : (
-              members.map((member) => {
-                const name =
-                  member.nickname ??
-                  member.profile.full_name ??
-                  "Jogador";
-                const initials = name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase();
-
-                return (
-                  <div
-                    key={member.id}
-                    className="flex items-center gap-3 rounded-lg border border-border px-4 py-3"
-                  >
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage
-                        src={member.profile.avatar_url ?? undefined}
-                      />
-                      <AvatarFallback className="bg-primary/20 text-xs text-primary">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{name}</p>
-                      {member.nickname && member.profile.full_name && (
-                        <p className="text-xs text-muted-foreground">
-                          {member.profile.full_name}
-                        </p>
-                      )}
-                    </div>
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
-                      {ROLE_LABELS[member.role]}
-                    </span>
-                  </div>
-                );
-              })
+              members.map((member) => (
+                <MemberRow
+                  key={member.id}
+                  member={member}
+                  currentUserId={profile?.id ?? ""}
+                  currentUserRole={role}
+                  canManage={permissions.canManageMembers}
+                />
+              ))
             )}
           </CardContent>
         </Card>

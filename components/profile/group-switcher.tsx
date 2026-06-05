@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Plus, LogIn, AlertCircle } from "lucide-react";
+import { Check, Plus, LogIn } from "lucide-react";
 import Link from "next/link";
 import { switchActiveTeam } from "@/lib/actions/team-actions";
+import { useToast } from "@/components/providers/toast-provider";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,16 +31,7 @@ interface GroupSwitcherProps {
 export function GroupSwitcher({ teams, activeTeamId }: GroupSwitcherProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [toast, setToast] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 2200);
-    return () => clearTimeout(timer);
-  }, [toast]);
+  const { showToast } = useToast();
 
   function handleSwitch(teamId: string) {
     if (teamId === activeTeamId) return;
@@ -47,11 +39,11 @@ export function GroupSwitcher({ teams, activeTeamId }: GroupSwitcherProps) {
     startTransition(async () => {
       const result = await switchActiveTeam(teamId);
       if (result.error) {
-        setToast({ type: "error", message: result.error });
+        showToast(result.error, "error");
         return;
       }
 
-      setToast({ type: "success", message: result.success ?? "Grupo alterado." });
+      showToast(result.success ?? "Grupo alterado.");
       router.refresh();
     });
   }
@@ -155,25 +147,6 @@ export function GroupSwitcher({ teams, activeTeamId }: GroupSwitcherProps) {
         </div>
       </CardContent>
 
-      {toast && (
-        <div className="pointer-events-none fixed bottom-24 left-1/2 z-[60] w-[min(92vw,360px)] -translate-x-1/2 md:bottom-6">
-          <div
-            className={cn(
-              "flex items-center gap-2 rounded-lg border px-4 py-3 text-sm shadow-lg backdrop-blur",
-              toast.type === "success"
-                ? "border-primary/40 bg-card text-foreground"
-                : "border-destructive/50 bg-card text-foreground"
-            )}
-          >
-            {toast.type === "success" ? (
-              <Check className="h-4 w-4 shrink-0 text-primary" />
-            ) : (
-              <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
-            )}
-            <p className="line-clamp-2">{toast.message}</p>
-          </div>
-        </div>
-      )}
     </Card>
   );
 }

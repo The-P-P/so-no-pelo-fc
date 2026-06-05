@@ -47,6 +47,7 @@ export interface Database {
           logo_url: string | null;
           player_invite_token: string;
           admin_invite_token: string;
+          ranked_top_tier_name: string;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -59,6 +60,7 @@ export interface Database {
           logo_url?: string | null;
           player_invite_token?: string;
           admin_invite_token?: string;
+          ranked_top_tier_name?: string;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -68,6 +70,7 @@ export interface Database {
           slug?: string;
           description?: string | null;
           logo_url?: string | null;
+          ranked_top_tier_name?: string;
           updated_at?: string;
         };
         Relationships: [
@@ -315,8 +318,76 @@ export interface Database {
           },
         ];
       };
+      ranked_seasons: {
+        Row: {
+          id: string;
+          team_id: string;
+          name: string;
+          is_active: boolean;
+          started_at: string;
+          ended_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          team_id: string;
+          name: string;
+          is_active?: boolean;
+          started_at?: string;
+          ended_at?: string | null;
+        };
+        Update: {
+          name?: string;
+          is_active?: boolean;
+          ended_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ranked_seasons_team_id_fkey";
+            columns: ["team_id"];
+            referencedRelation: "teams";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      pelada_victories: {
+        Row: {
+          id: string;
+          season_id: string;
+          pelada_id: string;
+          user_id: string;
+          pdl_points: number;
+          marked_by: string;
+          marked_at: string;
+        };
+        Insert: {
+          id?: string;
+          season_id: string;
+          pelada_id: string;
+          user_id: string;
+          pdl_points?: number;
+          marked_by: string;
+          marked_at?: string;
+        };
+        Update: {
+          pdl_points?: number;
+        };
+        Relationships: [];
+      };
     };
     Views: {
+      ranking_pdl: {
+        Row: {
+          team_id: string;
+          season_id: string;
+          user_id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          nickname: string | null;
+          total_pdl: number;
+          victories: number;
+        };
+        Relationships: [];
+      };
       ranking_geral: {
         Row: {
           team_id: string;
@@ -370,6 +441,10 @@ export interface Database {
       join_team_via_invite: {
         Args: { p_token: string; p_nickname?: string | null };
         Returns: string;
+      };
+      transfer_team_ownership: {
+        Args: { p_team_id: string; p_new_owner_id: string };
+        Returns: undefined;
       };
       get_team_by_invite_token: {
         Args: { p_token: string };

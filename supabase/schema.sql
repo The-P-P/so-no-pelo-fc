@@ -61,6 +61,7 @@ CREATE TABLE teams (
   logo_url TEXT,
   player_invite_token UUID NOT NULL DEFAULT uuid_generate_v4(),
   admin_invite_token UUID NOT NULL DEFAULT uuid_generate_v4(),
+  ranked_top_tier_name TEXT NOT NULL DEFAULT 'FENDA',
   created_by UUID NOT NULL REFERENCES profiles(id) ON DELETE RESTRICT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -282,6 +283,59 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Owner transfere ownership para outro membro
+CREATE OR REPLACE FUNCTION transfer_team_ownership(
+  p_team_id UUID,
+  p_new_owner_id UUID
+)
+RETURNS VOID AS $$
+DECLARE
+  v_current_owner UUID;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Não autenticado';
+  END IF;
+
+  SELECT user_id INTO v_current_owner
+  FROM team_members
+  WHERE team_id = p_team_id AND role = 'owner'
+  LIMIT 1;
+
+  IF v_current_owner IS NULL THEN
+    RAISE EXCEPTION 'Grupo sem dono';
+  END IF;
+
+  IF v_current_owner <> auth.uid() THEN
+    RAISE EXCEPTION 'Apenas o dono pode transferir ownership';
+  END IF;
+
+  IF p_new_owner_id = v_current_owner THEN
+    RAISE EXCEPTION 'Novo dono deve ser diferente do atual';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM team_members
+    WHERE team_id = p_team_id AND user_id = p_new_owner_id
+  ) THEN
+    RAISE EXCEPTION 'Novo dono precisa ser membro do grupo';
+  END IF;
+
+  UPDATE team_members
+  SET role = 'admin'
+  WHERE team_id = p_team_id
+    AND user_id = v_current_owner
+    AND role = 'owner';
+
+  UPDATE team_members
+  SET role = 'owner'
+  WHERE team_id = p_team_id
+    AND user_id = p_new_owner_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+REVOKE ALL ON FUNCTION transfer_team_ownership(UUID, UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION transfer_team_ownership(UUID, UUID) TO authenticated;
+
 CREATE OR REPLACE FUNCTION get_team_by_invite_token(p_token UUID)
 RETURNS TABLE (id UUID, name TEXT, invite_role team_role) AS $$
 BEGIN
@@ -413,6 +467,13 @@ CREATE POLICY "Owner/Admin podem remover membros (exceto owner)"
     AND user_id != auth.uid()
   );
 
+CREATE POLICY "Usuário pode sair do próprio time (exceto owner)"
+  ON team_members FOR DELETE
+  USING (
+    user_id = auth.uid()
+    AND role != 'owner'
+  );
+
 -- Permite usuário entrar em time via convite (self-insert como player)
 CREATE POLICY "Usuário pode se juntar como player"
   ON team_members FOR INSERT
@@ -442,6 +503,10 @@ CREATE POLICY "Membros veem pesos de stats"
 CREATE POLICY "Admin edita pesos de stats"
   ON team_stat_weights FOR UPDATE
   USING (is_team_admin(team_id, auth.uid()))
+  WITH CHECK (is_team_admin(team_id, auth.uid()));
+
+CREATE POLICY "Admin insere pesos de stats"
+  ON team_stat_weights FOR INSERT
   WITH CHECK (is_team_admin(team_id, auth.uid()));
 
 -- ---------- PELADAS ----------

@@ -3,6 +3,7 @@ import {
   CalendarDays,
   Trophy,
   Users,
+  BarChart3,
   type LucideIcon,
 } from "lucide-react";
 import type { TeamRole } from "@/types";
@@ -24,6 +25,11 @@ export const BOTTOM_NAV_ITEMS: NavItemConfig[] = [
     title: "Peladas",
     href: "/dashboard/peladas",
     icon: CalendarDays,
+  },
+  {
+    title: "Stats",
+    href: "/dashboard",
+    icon: BarChart3,
   },
   {
     title: "Ranking",
@@ -50,10 +56,12 @@ export function filterNavItems(
 }
 
 export function isNavItemActive(pathname: string, href: string): boolean {
+  if (href === "/dashboard") {
+    return pathname === "/dashboard";
+  }
   if (href === "/dashboard/perfil") {
     return (
       pathname === "/dashboard/perfil" ||
-      pathname === "/dashboard" ||
       pathname.startsWith("/dashboard/grupo")
     );
   }

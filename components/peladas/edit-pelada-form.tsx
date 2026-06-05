@@ -1,47 +1,70 @@
 "use client";
 
-import { useActionState } from "react";
-import { Loader2, CalendarPlus } from "lucide-react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, Save } from "lucide-react";
 import {
-  createPelada,
+  updatePelada,
   type PeladaActionResult,
 } from "@/lib/actions/pelada-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import type { Pelada } from "@/types";
 
 const initialState: PeladaActionResult = {};
 
-export function CreatePeladaForm() {
-  const [state, action, pending] = useActionState(createPelada, initialState);
-  const today = new Date().toISOString().split("T")[0];
+interface EditPeladaFormProps {
+  pelada: Pick<Pelada, "id" | "date" | "location" | "notes">;
+  onSaved?: () => void;
+}
+
+export function EditPeladaForm({ pelada, onSaved }: EditPeladaFormProps) {
+  const router = useRouter();
+  const [state, action, pending] = useActionState(updatePelada, initialState);
+
+  useEffect(() => {
+    if (state.success) {
+      onSaved?.();
+      router.refresh();
+    }
+  }, [state.success, router, onSaved]);
 
   return (
     <form action={action} className="space-y-4">
+      <input type="hidden" name="peladaId" value={pelada.id} />
+
       {state.error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {state.error}
         </div>
       )}
 
+      {state.success && (
+        <div className="rounded-md border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary">
+          {state.success}
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="date">Data</Label>
+          <Label htmlFor="edit-date">Data</Label>
           <Input
-            id="date"
+            id="edit-date"
             name="date"
             type="date"
-            defaultValue={today}
+            defaultValue={pelada.date}
             required
             disabled={pending}
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="location">Mapa</Label>
+          <Label htmlFor="edit-location">Mapa</Label>
           <Input
-            id="location"
+            id="edit-location"
             name="location"
+            defaultValue={pelada.location ?? ""}
             placeholder="Link do Google Maps ou endereço"
             disabled={pending}
           />
@@ -49,11 +72,12 @@ export function CreatePeladaForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Descrição</Label>
+        <Label htmlFor="edit-description">Descrição</Label>
         <textarea
-          id="description"
+          id="edit-description"
           name="description"
           rows={3}
+          defaultValue={pelada.notes ?? ""}
           placeholder="Treino de quinta, pelada com os amigos..."
           disabled={pending}
           className={cn(
@@ -67,8 +91,8 @@ export function CreatePeladaForm() {
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <>
-            <CalendarPlus className="mr-2 h-4 w-4" />
-            Nova pelada
+            <Save className="mr-2 h-4 w-4" />
+            Salvar alterações
           </>
         )}
       </Button>

@@ -18,6 +18,8 @@ export type PeladaAttendance =
 export type PlayerStat = Database["public"]["Tables"]["player_stats"]["Row"];
 export type RankingGeral = Database["public"]["Views"]["ranking_geral"]["Row"];
 export type RankingPelada = Database["public"]["Views"]["ranking_pelada"]["Row"];
+export type RankingPdl = Database["public"]["Views"]["ranking_pdl"]["Row"];
+export type RankedSeason = Database["public"]["Tables"]["ranked_seasons"]["Row"];
 
 export type ParticipantType = "member" | "fictional";
 

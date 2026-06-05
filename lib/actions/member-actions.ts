@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getDashboardContext } from "@/lib/auth";
+import { getDashboardContext, requireUser } from "@/lib/auth";
 import { getTeamPermissions } from "@/types";
 import type { FictionalPlayer, TeamMemberWithProfile } from "@/types";
 
@@ -110,4 +110,137 @@ export async function removeFictionalPlayer(
   revalidatePath("/dashboard/membros");
   revalidatePath("/dashboard/peladas");
   return { success: "Jogador fictício removido." };
+}
+
+export async function promoteMember(
+  memberUserId: string
+): Promise<MemberActionResult> {
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canManageMembers) {
+    return { error: "Apenas admins podem gerenciar membros." };
+  }
+
+  return updateMemberRole(memberUserId, "admin", {
+    expectedRole: "player",
+    alreadyMessage: "Este membro já é admin.",
+    successMessage: "Membro promovido a admin.",
+  });
+}
+
+export async function demoteMember(
+  memberUserId: string
+): Promise<MemberActionResult> {
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canManageMembers) {
+    return { error: "Apenas admins podem gerenciar membros." };
+  }
+
+  if (role !== "owner") {
+    return { error: "Apenas o dono pode rebaixar admins." };
+  }
+
+  return updateMemberRole(memberUserId, "player", {
+    expectedRole: "admin",
+    alreadyMessage: "Este membro já é jogador.",
+    successMessage: "Admin rebaixado para jogador.",
+  });
+}
+
+async function updateMemberRole(
+  memberUserId: string,
+  newRole: "admin" | "player",
+  options: {
+    expectedRole: "admin" | "player";
+    alreadyMessage: string;
+    successMessage: string;
+  }
+): Promise<MemberActionResult> {
+  const user = await requireUser();
+  const { team } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  if (memberUserId === user.id) {
+    return { error: "Você não pode alterar seu próprio cargo." };
+  }
+
+  const supabase = await createClient();
+  const { data: member } = await supabase
+    .from("team_members")
+    .select("role")
+    .eq("team_id", team.id)
+    .eq("user_id", memberUserId)
+    .maybeSingle();
+
+  if (!member) return { error: "Membro não encontrado." };
+  if (member.role === "owner") {
+    return { error: "Não é possível alterar o dono do grupo." };
+  }
+  if (member.role !== options.expectedRole) {
+    return { error: options.alreadyMessage };
+  }
+
+  const { error } = await supabase
+    .from("team_members")
+    .update({ role: newRole })
+    .eq("team_id", team.id)
+    .eq("user_id", memberUserId);
+
+  if (error) return { error: error.message };
+
+  revalidateMemberPaths();
+  return { success: options.successMessage };
+}
+
+export async function removeMember(
+  memberUserId: string
+): Promise<MemberActionResult> {
+  const user = await requireUser();
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canManageMembers) {
+    return { error: "Apenas admins podem remover membros." };
+  }
+
+  if (memberUserId === user.id) {
+    return { error: "Use a opção de sair do grupo no perfil." };
+  }
+
+  const supabase = await createClient();
+  const { data: member } = await supabase
+    .from("team_members")
+    .select("role")
+    .eq("team_id", team.id)
+    .eq("user_id", memberUserId)
+    .maybeSingle();
+
+  if (!member) return { error: "Membro não encontrado." };
+  if (member.role === "owner") {
+    return { error: "Não é possível remover o dono do grupo." };
+  }
+
+  const { error } = await supabase
+    .from("team_members")
+    .delete()
+    .eq("team_id", team.id)
+    .eq("user_id", memberUserId);
+
+  if (error) return { error: error.message };
+
+  revalidateMemberPaths();
+  return { success: "Membro removido do grupo." };
+}
+
+function revalidateMemberPaths() {
+  revalidatePath("/dashboard/membros");
+  revalidatePath("/dashboard/perfil");
+  revalidatePath("/dashboard/peladas");
+  revalidatePath("/dashboard/ranking");
 }

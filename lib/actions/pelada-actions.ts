@@ -13,6 +13,50 @@ export type PeladaActionResult = {
   success?: string;
 };
 
+export async function deletePelada(
+  _prev: PeladaActionResult,
+  formData: FormData
+): Promise<PeladaActionResult> {
+  const peladaId = (formData.get("peladaId") as string | null)?.trim();
+  const confirmText = (formData.get("confirmText") as string | null)?.trim();
+
+  if (!peladaId) return { error: "Partida inválida." };
+  if (confirmText !== "DELETAR") {
+    return { error: 'Digite "DELETAR" para confirmar.' };
+  }
+
+  const user = await requireUser();
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canCreatePelada) {
+    return { error: "Apenas admins podem deletar partidas." };
+  }
+
+  const pelada = await getPeladaById(peladaId);
+  if (!pelada || pelada.team_id !== team.id) {
+    return { error: "Partida não encontrada." };
+  }
+
+  if (pelada.created_by !== user.id) {
+    return { error: "Só o admin que criou a partida pode deletar." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("peladas")
+    .delete()
+    .eq("id", peladaId)
+    .eq("team_id", team.id)
+    .eq("created_by", user.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/peladas");
+  redirect("/dashboard/peladas");
+}
+
 export async function getTeamPeladas(teamId: string): Promise<Pelada[]> {
   const supabase = await createClient();
   const { data } = await supabase
@@ -123,11 +167,74 @@ export async function createPelada(
   redirect(`/dashboard/peladas/${data.id}`);
 }
 
-export async function incrementStat(
+export async function updatePelada(
+  _prev: PeladaActionResult,
+  formData: FormData
+): Promise<PeladaActionResult> {
+  const peladaId = (formData.get("peladaId") as string | null)?.trim();
+  if (!peladaId) return { error: "Partida inválida." };
+
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canCreatePelada) {
+    return { error: "Apenas admins podem editar peladas." };
+  }
+
+  const pelada = await getPeladaById(peladaId);
+  if (!pelada || pelada.team_id !== team.id) {
+    return { error: "Pelada não encontrada." };
+  }
+
+  const date = formData.get("date") as string;
+  const location = (formData.get("location") as string)?.trim();
+  const description = (formData.get("description") as string)?.trim();
+
+  if (!date) return { error: "Informe a data da pelada." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("peladas")
+    .update({
+      date,
+      location: location || null,
+      notes: description || null,
+    })
+    .eq("id", peladaId)
+    .eq("team_id", team.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/peladas");
+  revalidatePath(`/dashboard/peladas/${peladaId}`);
+  revalidatePath("/dashboard");
+  return { success: "Pelada atualizada!" };
+}
+
+function emptyBaseStats() {
+  return {
+    goals: 0,
+    assists: 0,
+    god_saves: 0,
+    vacilos: 0,
+    own_goals: 0,
+  };
+}
+
+function revalidatePeladaPaths(peladaId: string) {
+  revalidatePath(`/dashboard/peladas/${peladaId}`);
+  revalidatePath("/dashboard/peladas");
+  revalidatePath("/dashboard/ranking");
+  revalidatePath("/dashboard");
+}
+
+async function adjustStatAsAdmin(
   peladaId: string,
   participantId: string,
   participantType: "member" | "fictional",
-  statField: StatField
+  statField: StatField,
+  delta: 1 | -1
 ): Promise<PeladaActionResult> {
   const { team, role } = await getDashboardContext();
   if (!team) return { error: "Você não está em um grupo." };
@@ -146,7 +253,7 @@ export async function incrementStat(
   const isMember = participantType === "member";
   const filterCol = isMember ? "user_id" : "fictional_player_id";
 
-  if (isMember) {
+  if (delta === 1 && isMember) {
     const { data: attendance } = await supabase
       .from("pelada_attendance")
       .select("present")
@@ -173,7 +280,12 @@ export async function incrementStat(
     vacilos: existing?.vacilos ?? 0,
     own_goals: existing?.own_goals ?? 0,
   };
-  baseStats[statField] += 1;
+
+  if (delta === -1 && baseStats[statField] <= 0) {
+    return { error: "Não há o que remover nessa estatística." };
+  }
+
+  baseStats[statField] += delta;
 
   if (existing) {
     const { error } = await supabase
@@ -185,7 +297,7 @@ export async function incrementStat(
       .eq("id", existing.id);
 
     if (error) return { error: error.message };
-  } else {
+  } else if (delta === 1) {
     const insertData = {
       pelada_id: peladaId,
       ...baseStats,
@@ -198,6 +310,216 @@ export async function incrementStat(
     if (error) return { error: error.message };
   }
 
-  revalidatePath(`/dashboard/peladas/${peladaId}`);
-  return { success: "+1 registrado!" };
+  revalidatePeladaPaths(peladaId);
+  return {
+    success: delta === 1 ? "+1 registrado!" : "Correção aplicada.",
+  };
+}
+
+async function adjustStatAsPlayer(
+  peladaId: string,
+  statField: StatField,
+  delta: 1 | -1
+): Promise<PeladaActionResult> {
+  const user = await requireUser();
+  const { team } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const supabase = await createClient();
+  const pelada = await getPeladaById(peladaId);
+  if (!pelada || pelada.team_id !== team.id) {
+    return { error: "Pelada não encontrada." };
+  }
+
+  const { data: attendance } = await supabase
+    .from("pelada_attendance")
+    .select("present")
+    .eq("pelada_id", peladaId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!attendance?.present) {
+    return { error: "Confirme sua presença antes de lançar stats." };
+  }
+
+  const { data: existing } = await supabase
+    .from("player_stats")
+    .select("*")
+    .eq("pelada_id", peladaId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existing?.status === "approved") {
+    return {
+      error: "Suas stats já foram aprovadas. Peça ao admin para corrigir.",
+    };
+  }
+
+  const baseStats = existing
+    ? {
+        goals: existing.goals,
+        assists: existing.assists,
+        god_saves: existing.god_saves,
+        vacilos: existing.vacilos,
+        own_goals: existing.own_goals,
+      }
+    : emptyBaseStats();
+
+  if (delta === -1 && baseStats[statField] <= 0) {
+    return { error: "Não há o que remover nessa estatística." };
+  }
+
+  baseStats[statField] += delta;
+
+  if (existing) {
+    const { error } = await supabase
+      .from("player_stats")
+      .update({
+        ...baseStats,
+        status: "pending",
+      })
+      .eq("id", existing.id)
+      .eq("user_id", user.id);
+
+    if (error) return { error: error.message };
+  } else if (delta === 1) {
+    const { error } = await supabase.from("player_stats").insert({
+      pelada_id: peladaId,
+      ...baseStats,
+      status: "pending",
+      user_id: user.id,
+      fictional_player_id: null,
+    });
+
+    if (error) return { error: error.message };
+  }
+
+  revalidatePeladaPaths(peladaId);
+  return {
+    success:
+      delta === 1
+        ? "Stat enviada para aprovação!"
+        : "Correção salva (aguardando aprovação).",
+  };
+}
+
+export async function incrementStat(
+  peladaId: string,
+  participantId: string,
+  participantType: "member" | "fictional",
+  statField: StatField
+): Promise<PeladaActionResult> {
+  return adjustStatAsAdmin(
+    peladaId,
+    participantId,
+    participantType,
+    statField,
+    1
+  );
+}
+
+export async function decrementStat(
+  peladaId: string,
+  participantId: string,
+  participantType: "member" | "fictional",
+  statField: StatField
+): Promise<PeladaActionResult> {
+  return adjustStatAsAdmin(
+    peladaId,
+    participantId,
+    participantType,
+    statField,
+    -1
+  );
+}
+
+export async function incrementOwnStat(
+  peladaId: string,
+  statField: StatField
+): Promise<PeladaActionResult> {
+  return adjustStatAsPlayer(peladaId, statField, 1);
+}
+
+export async function decrementOwnStat(
+  peladaId: string,
+  statField: StatField
+): Promise<PeladaActionResult> {
+  return adjustStatAsPlayer(peladaId, statField, -1);
+}
+
+export async function approvePlayerStat(
+  statId: string
+): Promise<PeladaActionResult> {
+  const user = await requireUser();
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canApproveStats) {
+    return { error: "Apenas admins podem aprovar estatísticas." };
+  }
+
+  const supabase = await createClient();
+  const { data: stat } = await supabase
+    .from("player_stats")
+    .select("*, pelada:peladas(team_id)")
+    .eq("id", statId)
+    .maybeSingle();
+
+  if (!stat) return { error: "Estatística não encontrada." };
+
+  const pelada = stat.pelada as { team_id: string } | null;
+  if (!pelada || pelada.team_id !== team.id) {
+    return { error: "Estatística não encontrada." };
+  }
+
+  const { error } = await supabase
+    .from("player_stats")
+    .update({
+      status: "approved",
+      reviewed_by: user.id,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", statId);
+
+  if (error) return { error: error.message };
+
+  revalidatePeladaPaths(stat.pelada_id);
+  return { success: "Estatísticas aprovadas!" };
+}
+
+export async function rejectPlayerStat(
+  statId: string
+): Promise<PeladaActionResult> {
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canApproveStats) {
+    return { error: "Apenas admins podem rejeitar estatísticas." };
+  }
+
+  const supabase = await createClient();
+  const { data: stat } = await supabase
+    .from("player_stats")
+    .select("*, pelada:peladas(team_id)")
+    .eq("id", statId)
+    .maybeSingle();
+
+  if (!stat) return { error: "Estatística não encontrada." };
+
+  const pelada = stat.pelada as { team_id: string } | null;
+  if (!pelada || pelada.team_id !== team.id) {
+    return { error: "Estatística não encontrada." };
+  }
+
+  const { error } = await supabase
+    .from("player_stats")
+    .delete()
+    .eq("id", statId);
+
+  if (error) return { error: error.message };
+
+  revalidatePeladaPaths(stat.pelada_id);
+  return { success: "Envio rejeitado. O jogador pode lançar de novo." };
 }

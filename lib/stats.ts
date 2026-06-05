@@ -1,13 +1,27 @@
 /** Tipos de estatística rastreáveis com botão +1 */
-export type StatField = "goals" | "assists" | "god_saves" | "vacilos";
+export type StatField =
+  | "goals"
+  | "assists"
+  | "god_saves"
+  | "vacilos"
+  | "own_goals";
 
-export type StatWeightKey = StatField | "own_goals";
+export type StatWeightKey = StatField;
+
+export const STAT_FIELDS: StatField[] = [
+  "goals",
+  "assists",
+  "god_saves",
+  "vacilos",
+  "own_goals",
+];
 
 export const STAT_LABELS: Record<StatField, string> = {
   goals: "Gol",
   assists: "Assistência",
   god_saves: "God Save",
   vacilos: "Deu o cu",
+  own_goals: "Gol contra",
 };
 
 export const STAT_EMOJIS: Record<StatField, string> = {
@@ -15,7 +29,26 @@ export const STAT_EMOJIS: Record<StatField, string> = {
   assists: "🎯",
   god_saves: "🧤",
   vacilos: "💀",
+  own_goals: "🙈",
 };
+
+export const WEIGHT_LABELS: Record<StatWeightKey, string> = {
+  goals: "Gol",
+  assists: "Assistência",
+  god_saves: "God Save",
+  vacilos: "Vacilo",
+  own_goals: "Gol contra",
+};
+
+export function formatWeightsDescription(
+  weights: Record<StatWeightKey, number>
+): string {
+  return STAT_FIELDS.map((key) => {
+    const w = weights[key];
+    const sign = w > 0 ? `+${w}` : String(w);
+    return `${WEIGHT_LABELS[key].toLowerCase()} ${sign}`;
+  }).join(", ");
+}
 
 /** Pesos padrão — depois o admin ajusta por grupo em team_stat_weights */
 export const DEFAULT_STAT_WEIGHTS: Record<StatWeightKey, number> = {

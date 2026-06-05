@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Users, X } from "lucide-react";
 import {
   confirmAllAttendance,
@@ -38,6 +39,7 @@ function AttendanceRow({
   currentUserId: string;
   canManageOthers: boolean;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const isSelf = member.userId === currentUserId;
   const canToggle = isSelf || canManageOthers;
@@ -45,7 +47,8 @@ function AttendanceRow({
 
   function handleToggle(present: boolean) {
     startTransition(async () => {
-      await toggleAttendance(peladaId, member.userId, present);
+      const result = await toggleAttendance(peladaId, member.userId, present);
+      if (!result.error) router.refresh();
     });
   }
 
@@ -127,13 +130,15 @@ export function AttendanceBoard({
   currentUserId,
   canManageOthers,
 }: AttendanceBoardProps) {
+  const router = useRouter();
   const [bulkPending, startBulkTransition] = useTransition();
   const confirmed = members.filter((m) => m.present).length;
   const allConfirmed = confirmed === members.length;
 
   function handleConfirmAll() {
     startBulkTransition(async () => {
-      await confirmAllAttendance(peladaId);
+      const result = await confirmAllAttendance(peladaId);
+      if (!result.error) router.refresh();
     });
   }
 

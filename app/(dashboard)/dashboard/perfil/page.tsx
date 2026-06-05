@@ -1,11 +1,15 @@
 import { Header } from "@/components/layout/header";
 import { GroupSwitcher } from "@/components/profile/group-switcher";
+import { LeaveTeamButton } from "@/components/profile/leave-team-button";
+import { DeleteTeamForm } from "@/components/profile/delete-team-form";
 import { LogoutButton } from "@/components/profile/logout-button";
 import { ResetPinForm } from "@/components/profile/reset-pin-form";
 import { ThemePicker } from "@/components/profile/theme-picker";
+import { TransferOwnershipForm } from "@/components/profile/transfer-ownership-form";
 import { UpdateNameForm } from "@/components/profile/update-name-form";
 import { UpdateNicknameForm } from "@/components/profile/update-nickname-form";
 import { InviteLinks } from "@/components/teams/invite-links";
+import { getTeamMembers } from "@/lib/actions/member-actions";
 import { getDashboardContext } from "@/lib/auth";
 import { getTeamPermissions } from "@/types";
 import {
@@ -26,6 +30,7 @@ export const metadata = {
 export default async function PerfilPage() {
   const { profile, team, role, teams, nickname } = await getDashboardContext();
   const permissions = getTeamPermissions(role);
+  const members = team ? await getTeamMembers(team.id) : [];
 
   const contact = profile?.phone
     ? formatPhoneDisplay(profile.phone)
@@ -160,6 +165,60 @@ export default async function PerfilPage() {
                 playerToken={team.player_invite_token}
                 adminToken={team.admin_invite_token}
               />
+            </CardContent>
+          </Card>
+        )}
+
+        {team && permissions.isOwner && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Transferir ownership</CardTitle>
+              <CardDescription>
+                Passe o grupo para outro membro antes de sair.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TransferOwnershipForm
+                teamName={team.name}
+                candidates={members
+                  .filter((m) => m.role !== "owner")
+                  .map((m) => ({
+                    userId: m.user_id,
+                    displayName: m.nickname ?? m.profile.full_name ?? "Jogador",
+                    role: m.role,
+                  }))}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {team && !permissions.isOwner && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Sair do grupo</CardTitle>
+              <CardDescription>
+                Você pode sair desse grupo quando quiser.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LeaveTeamButton />
+            </CardContent>
+          </Card>
+        )}
+
+        {team && permissions.isOwner && (
+          <Card className="border-destructive/40">
+            <CardHeader>
+              <CardTitle className="text-base text-destructive">
+                Zona de perigo
+              </CardTitle>
+              <CardDescription>
+                Apenas o dono pode apagar o grupo{" "}
+                <span className="font-medium text-foreground">{team.name}</span>.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DeleteTeamForm teamName={team.name} />
             </CardContent>
           </Card>
         )}
