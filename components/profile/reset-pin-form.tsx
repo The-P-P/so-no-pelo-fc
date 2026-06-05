@@ -32,6 +32,8 @@ export function ResetPinForm({ phoneE164, phoneDisplay }: ResetPinFormProps) {
     );
   }
 
+  const phone = phoneE164;
+
   async function handleSendSms() {
     setLoading(true);
     setError(null);
@@ -39,7 +41,7 @@ export function ResetPinForm({ phoneE164, phoneDisplay }: ResetPinFormProps) {
 
     const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithOtp({
-      phone: phoneE164,
+      phone,
     });
 
     if (authError) {
@@ -65,7 +67,7 @@ export function ResetPinForm({ phoneE164, phoneDisplay }: ResetPinFormProps) {
 
     const supabase = createClient();
     const { error: authError } = await supabase.auth.verifyOtp({
-      phone: phoneE164,
+      phone,
       token: otp,
       type: "sms",
     });

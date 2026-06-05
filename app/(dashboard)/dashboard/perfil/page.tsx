@@ -181,7 +181,11 @@ export default async function PerfilPage() {
               <TransferOwnershipForm
                 teamName={team.name}
                 candidates={members
-                  .filter((m) => m.role !== "owner")
+                  .filter(
+                    (m): m is (typeof members)[number] & {
+                      role: "admin" | "player";
+                    } => m.role === "admin" || m.role === "player"
+                  )
                   .map((m) => ({
                     userId: m.user_id,
                     displayName: m.nickname ?? m.profile.full_name ?? "Jogador",
