@@ -27,7 +27,7 @@ type FilterId = "all" | string;
 const STAT_CARDS: {
   key: keyof Pick<
     PersonalStatTotals,
-    "goals" | "assists" | "god_saves" | "vacilos" | "own_goals"
+    "goals" | "assists" | "god_saves" | "vacilos"
   >;
   label: string;
   emoji: string;
@@ -36,8 +36,47 @@ const STAT_CARDS: {
   { key: "assists", label: "Assistências", emoji: STAT_EMOJIS.assists },
   { key: "god_saves", label: "God Saves", emoji: STAT_EMOJIS.god_saves },
   { key: "vacilos", label: "Vacilos", emoji: STAT_EMOJIS.vacilos },
-  { key: "own_goals", label: "Gols contra", emoji: "🙈" },
 ];
+
+function getRankingDisplay(
+  filter: FilterId,
+  bundle: PersonalStatsBundle,
+  stats: PersonalStatTotals & { rank?: number; total_players?: number }
+): { value: string; subtitle: string } {
+  if (
+    filter !== "all" &&
+    stats.rank &&
+    stats.total_players &&
+    stats.total_players > 0
+  ) {
+    return {
+      value: `${stats.rank}º`,
+      subtitle: `de ${stats.total_players} jogadores`,
+    };
+  }
+
+  const rankedTeams = bundle.byTeam.filter(
+    (t) => t.total_players > 0 && t.peladas_jogadas > 0
+  );
+
+  if (rankedTeams.length === 0) {
+    return { value: "—", subtitle: "Sem ranking ainda" };
+  }
+
+  const best = rankedTeams.reduce((a, b) => (a.rank < b.rank ? a : b));
+
+  if (rankedTeams.length === 1) {
+    return {
+      value: `${best.rank}º`,
+      subtitle: `de ${best.total_players} em ${best.team_name}`,
+    };
+  }
+
+  return {
+    value: `${best.rank}º`,
+    subtitle: `Melhor colocação · ${best.team_name}`,
+  };
+}
 
 function formatScore(score: number) {
   return score > 0 ? `+${score}` : String(score);
@@ -104,6 +143,11 @@ export function PersonalStatsDashboard({ bundle }: PersonalStatsDashboardProps) 
     [filter, bundle]
   );
 
+  const rankingDisplay = useMemo(
+    () => getRankingDisplay(filter, bundle, stats),
+    [filter, bundle, stats]
+  );
+
   const attendancePct =
     stats.total_peladas > 0
       ? Math.round((stats.peladas_jogadas / stats.total_peladas) * 100)
@@ -114,7 +158,6 @@ export function PersonalStatsDashboard({ bundle }: PersonalStatsDashboardProps) 
     stats.assists > 0 ||
     stats.god_saves > 0 ||
     stats.vacilos > 0 ||
-    stats.own_goals > 0 ||
     stats.peladas_jogadas > 0;
 
   return (
@@ -243,6 +286,20 @@ export function PersonalStatsDashboard({ bundle }: PersonalStatsDashboardProps) 
             </CardContent>
           </Card>
         ))}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Ranking</CardTitle>
+            <span>🏆</span>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold tabular-nums">
+              {rankingDisplay.value}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {rankingDisplay.subtitle}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {filter === "all" && bundle.byTeam.length > 1 && (
