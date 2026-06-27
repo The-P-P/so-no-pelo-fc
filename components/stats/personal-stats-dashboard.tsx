@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -185,40 +186,61 @@ export function PersonalStatsDashboard({ bundle }: PersonalStatsDashboardProps) 
       </div>
 
       {ranked && (
-        <Card className="border-yellow-500/30 bg-yellow-500/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Liga PDL · {ranked.season_name}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p
-                className={cn(
-                  "text-2xl font-bold",
-                  getEloColor(ranked.eloName)
-                )}
-              >
-                {ranked.eloName}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {ranked.total_pdl} PDL · {ranked.victories} vitória
-                {ranked.victories !== 1 ? "s" : ""}
-              </p>
-            </div>
-            {ranked.nextEloName && ranked.pdlNeededForNext !== null && (
-              <div className="min-w-[200px] flex-1">
-                <p className="mb-1 text-xs text-muted-foreground">
-                  Faltam {ranked.pdlNeededForNext} PDL para {ranked.nextEloName}
-                </p>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${ranked.progressPercent}%` }}
-                  />
+        <Card className="overflow-hidden border-yellow-500/40 bg-gradient-to-br from-yellow-500/20 via-yellow-500/5 to-transparent shadow-sm">
+          <CardContent className="p-5 sm:p-6">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
+                  <Crown className="h-4 w-4 shrink-0" />
+                  <p className="text-xs font-semibold uppercase tracking-wider">
+                    Seu elo · {ranked.team_name}
+                  </p>
                 </div>
+                <p
+                  className={cn(
+                    "text-4xl font-black tracking-tight sm:text-5xl",
+                    getEloColor(ranked.eloName)
+                  )}
+                >
+                  {ranked.eloName}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {ranked.season_name} · {ranked.total_pdl} PDL ·{" "}
+                  {ranked.victories} vitória
+                  {ranked.victories !== 1 ? "s" : ""}
+                </p>
               </div>
-            )}
+
+              {ranked.nextEloName && ranked.pdlNeededForNext !== null ? (
+                <div className="w-full sm:max-w-xs">
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Faltam{" "}
+                    <span className="font-semibold text-foreground">
+                      {ranked.pdlNeededForNext} PDL
+                    </span>{" "}
+                    para{" "}
+                    <span
+                      className={cn("font-semibold", getEloColor(ranked.nextEloName))}
+                    >
+                      {ranked.nextEloName}
+                    </span>
+                  </p>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-yellow-500 transition-all"
+                      style={{ width: `${ranked.progressPercent}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-right text-[10px] tabular-nums text-muted-foreground">
+                    {ranked.progressPercent}%
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                  Elo máximo alcançado
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
