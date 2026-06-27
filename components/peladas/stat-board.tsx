@@ -8,7 +8,21 @@ import {
   incrementOwnStat,
   incrementStat,
 } from "@/lib/actions/pelada-actions";
-import { STAT_EMOJIS, STAT_FIELDS, STAT_LABELS, type StatField } from "@/lib/stats";
+import {
+  decrementVictory,
+  incrementVictory,
+} from "@/lib/actions/ranked-actions";
+import {
+  ADMIN_BOARD_FIELDS,
+  BOARD_EMOJIS,
+  BOARD_LABELS,
+  PLAYER_BOARD_FIELDS,
+  STAT_EMOJIS,
+  STAT_LABELS,
+  type BoardField,
+  type StatField,
+} from "@/lib/stats";
+import { VICTORY_PDL } from "@/lib/ranked";
 import { Button } from "@/components/ui/button";
 import { STAT_STATUS_LABELS, type Participant, type PlayerStat } from "@/types";
 import { cn } from "@/lib/utils";
@@ -17,6 +31,7 @@ interface StatBoardProps {
   peladaId: string;
   participants: Participant[];
   stats: PlayerStat[];
+  victoryCounts?: Record<string, number>;
   mode: "admin" | "player";
 }
 
@@ -111,13 +126,124 @@ function StatButton({
   );
 }
 
+function VictoryButton({
+  peladaId,
+  participant,
+  value,
+  onError,
+}: {
+  peladaId: string;
+  participant: Participant;
+  value: number;
+  onError: (message: string) => void;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const disabled = participant.type === "fictional";
+
+  function handleAdjust(delta: 1 | -1) {
+    if (disabled) return;
+
+    startTransition(async () => {
+      const action = delta === 1 ? incrementVictory : decrementVictory;
+      const result = await action(peladaId, participant.id);
+      if (result.error) onError(result.error);
+      else router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-1.5">
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="text-xs">{BOARD_EMOJIS.victories}</span>
+        <span className="text-center text-[10px] leading-tight text-muted-foreground">
+          {BOARD_LABELS.victories}
+        </span>
+        <span className="text-sm font-bold">{value}</span>
+        {value > 0 && (
+          <span className="text-[9px] text-yellow-700 dark:text-yellow-400">
+            +{value * VICTORY_PDL} PDL
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 px-1 text-xs"
+          onClick={() => handleAdjust(-1)}
+          disabled={pending || disabled || value <= 0}
+        >
+          −1
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 px-1 text-xs text-yellow-700 dark:text-yellow-400"
+          onClick={() => handleAdjust(1)}
+          disabled={pending || disabled}
+        >
+          +1
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function BoardCell({
+  peladaId,
+  participant,
+  field,
+  stats,
+  victoryCounts,
+  mode,
+  onError,
+}: {
+  peladaId: string;
+  participant: Participant;
+  field: BoardField | StatField;
+  stats: PlayerStat[];
+  victoryCounts: Record<string, number>;
+  mode: "admin" | "player";
+  onError: (message: string) => void;
+}) {
+  if (field === "victories") {
+    const value =
+      participant.type === "member"
+        ? (victoryCounts[participant.id] ?? 0)
+        : 0;
+    return (
+      <VictoryButton
+        peladaId={peladaId}
+        participant={participant}
+        value={value}
+        onError={onError}
+      />
+    );
+  }
+
+  return (
+    <StatButton
+      peladaId={peladaId}
+      participant={participant}
+      field={field}
+      value={getStatValue(stats, participant, field)}
+      mode={mode}
+      onError={onError}
+    />
+  );
+}
+
 export function StatBoard({
   peladaId,
   participants,
   stats,
+  victoryCounts = {},
   mode,
 }: StatBoardProps) {
   const [error, setError] = useState<string | null>(null);
+  const fields: (BoardField | StatField)[] =
+    mode === "admin" ? ADMIN_BOARD_FIELDS : PLAYER_BOARD_FIELDS;
 
   if (participants.length === 0) {
     return (
@@ -169,13 +295,14 @@ export function StatBoard({
               )}
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-              {STAT_FIELDS.map((field) => (
-                <StatButton
+              {fields.map((field) => (
+                <BoardCell
                   key={field}
                   peladaId={peladaId}
                   participant={participant}
                   field={field}
-                  value={getStatValue(stats, participant, field)}
+                  stats={stats}
+                  victoryCounts={victoryCounts}
                   mode={mode}
                   onError={setError}
                 />

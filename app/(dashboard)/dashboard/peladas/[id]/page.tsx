@@ -26,8 +26,8 @@ import { getAttendanceMembers } from "@/lib/actions/attendance-actions";
 
 import { AttendanceCard } from "@/components/peladas/attendance-card";
 import { EditPeladaCard } from "@/components/peladas/edit-pelada-card";
-import { VictoryBoard } from "@/components/ranked/victory-board";
-import { getVictoryMembers } from "@/lib/actions/ranked-actions";
+import { getVictoryCountsByPelada } from "@/lib/actions/ranked-actions";
+import { VICTORY_PDL } from "@/lib/ranked";
 
 import { DeletePeladaForm } from "@/components/peladas/delete-pelada-form";
 
@@ -86,12 +86,12 @@ export default async function PeladaDetailPage({
 
   const permissions = getTeamPermissions(role);
 
-  const [participants, stats, attendanceMembers, victoryMembers] =
+  const [participants, stats, attendanceMembers, victoryCounts] =
     await Promise.all([
       getParticipants(team.id),
       getPeladaStats(id),
       getAttendanceMembers(team.id, id),
-      getVictoryMembers(team.id, id),
+      getVictoryCountsByPelada(team.id, id),
     ]);
 
 
@@ -220,11 +220,9 @@ export default async function PeladaDetailPage({
               <CardTitle className="text-base">Estatísticas (admin)</CardTitle>
 
               <CardDescription>
-
                 Use +1 para registrar e −1 para corrigir — só quem confirmou
-
-                presença aparece aqui
-
+                presença aparece aqui. Cada vitória vale +{VICTORY_PDL} PDL na
+                liga.
               </CardDescription>
 
             </CardHeader>
@@ -244,15 +242,11 @@ export default async function PeladaDetailPage({
               ) : (
 
                 <StatBoard
-
                   peladaId={id}
-
                   participants={filteredParticipants}
-
                   stats={stats}
-
+                  victoryCounts={victoryCounts}
                   mode="admin"
-
                 />
 
               )}
@@ -316,42 +310,6 @@ export default async function PeladaDetailPage({
           </Card>
 
         )}
-
-
-
-        <Card>
-
-          <CardHeader>
-
-            <CardTitle className="text-base">Vitórias (Liga)</CardTitle>
-
-            <CardDescription>
-
-              +25 PDL por vitória — temporada ativa. Toque em Desfazer se
-
-              marcou errado.
-
-            </CardDescription>
-
-          </CardHeader>
-
-          <CardContent>
-
-            <VictoryBoard
-
-              peladaId={id}
-
-              members={victoryMembers}
-
-              canManage={permissions.canApproveStats}
-
-            />
-
-          </CardContent>
-
-        </Card>
-
-
 
         {permissions.canCreatePelada && pelada.created_by === profile?.id && (
 

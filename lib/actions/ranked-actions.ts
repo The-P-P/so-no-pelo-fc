@@ -19,15 +19,6 @@ export type RankedSeason = {
   started_at: string;
 };
 
-export type VictoryMember = {
-  userId: string;
-  displayName: string;
-  nickname: string | null;
-  avatarUrl: string | null;
-  present: boolean;
-  won: boolean;
-};
-
 export type RankedEntry = {
   user_id: string;
   full_name: string | null;
@@ -77,55 +68,31 @@ export async function ensureActiveSeason(
   return data;
 }
 
-export async function getVictoryMembers(
+/** Contagem de vitórias por jogador nesta pelada (temporada ativa). */
+export async function getVictoryCountsByPelada(
   teamId: string,
   peladaId: string
-): Promise<VictoryMember[]> {
+): Promise<Record<string, number>> {
   const supabase = await createClient();
   const season = await ensureActiveSeason(teamId);
 
-  const [{ data: members }, { data: attendance }, { data: victories }] =
-    await Promise.all([
-      supabase
-        .from("team_members")
-        .select("user_id, nickname, profile:profiles(full_name, avatar_url)")
-        .eq("team_id", teamId),
-      supabase
-        .from("pelada_attendance")
-        .select("user_id, present")
-        .eq("pelada_id", peladaId),
-      supabase
-        .from("pelada_victories")
-        .select("user_id")
-        .eq("pelada_id", peladaId)
-        .eq("season_id", season.id),
-    ]);
+  const { data: victories } = await supabase
+    .from("pelada_victories")
+    .select("user_id")
+    .eq("pelada_id", peladaId)
+    .eq("season_id", season.id);
 
-  const attendanceMap = new Map(
-    (attendance ?? []).map((a) => [a.user_id, a.present])
-  );
-  const winnerIds = new Set((victories ?? []).map((v) => v.user_id));
-
-  return (members ?? []).map((m) => {
-    const profile = m.profile as {
-      full_name: string | null;
-      avatar_url: string | null;
-    } | null;
-
-    return {
-      userId: m.user_id,
-      displayName: profile?.full_name ?? "Jogador",
-      nickname: m.nickname,
-      avatarUrl: profile?.avatar_url ?? null,
-      present: attendanceMap.get(m.user_id) ?? false,
-      won: winnerIds.has(m.user_id),
-    };
-  });
+  const counts: Record<string, number> = {};
+  for (const row of victories ?? []) {
+    counts[row.user_id] = (counts[row.user_id] ?? 0) + 1;
+  }
+  return counts;
 }
 
-export async function toggleVictory(
+async function adjustVictory(
   peladaId: string,
-  userId: string
+  userId: string,
+  delta: 1 | -1
 ): Promise<RankedActionResult> {
   const user = await requireUser();
   const { team, role } = await getDashboardContext();
@@ -147,27 +114,35 @@ export async function toggleVictory(
     .maybeSingle();
 
   if (!attendance?.present) {
-    return { error: "Só é possível marcar vitória para quem confirmou presença." };
+    return {
+      error: "Só é possível marcar vitória para quem confirmou presença.",
+    };
   }
 
-  const { data: existing } = await supabase
-    .from("pelada_victories")
-    .select("id")
-    .eq("season_id", season.id)
-    .eq("pelada_id", peladaId)
-    .eq("user_id", userId)
-    .maybeSingle();
+  if (delta === -1) {
+    const { data: latest } = await supabase
+      .from("pelada_victories")
+      .select("id")
+      .eq("season_id", season.id)
+      .eq("pelada_id", peladaId)
+      .eq("user_id", userId)
+      .order("marked_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  if (existing) {
+    if (!latest) {
+      return { error: "Não há vitória para remover." };
+    }
+
     const { error } = await supabase
       .from("pelada_victories")
       .delete()
-      .eq("id", existing.id);
+      .eq("id", latest.id);
 
     if (error) return { error: error.message };
 
     revalidateRankedPaths(peladaId);
-    return { success: "Vitória desfeita." };
+    return { success: "Vitória removida." };
   }
 
   const { error } = await supabase.from("pelada_victories").insert({
@@ -181,7 +156,21 @@ export async function toggleVictory(
   if (error) return { error: error.message };
 
   revalidateRankedPaths(peladaId);
-  return { success: `+${VICTORY_PDL} PDL registrado!` };
+  return { success: `+1 vitória · +${VICTORY_PDL} PDL` };
+}
+
+export async function incrementVictory(
+  peladaId: string,
+  userId: string
+): Promise<RankedActionResult> {
+  return adjustVictory(peladaId, userId, 1);
+}
+
+export async function decrementVictory(
+  peladaId: string,
+  userId: string
+): Promise<RankedActionResult> {
+  return adjustVictory(peladaId, userId, -1);
 }
 
 export async function getRankingPdl(teamId: string): Promise<{
