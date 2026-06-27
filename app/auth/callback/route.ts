@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Callback OAuth (Google) e confirmação de e-mail.
- * Troca o code por sessão e redireciona pro dashboard.
+ * Callback de confirmação de e-mail e redefinição de PIN.
+ * Troca o code por sessão e redireciona.
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
 
-  // Erro retornado pelo Supabase/Google
+  // Erro retornado pelo Supabase
   const authError =
     searchParams.get("error_description") ?? searchParams.get("error");
 

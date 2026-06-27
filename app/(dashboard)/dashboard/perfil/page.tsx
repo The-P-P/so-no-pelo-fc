@@ -3,7 +3,7 @@ import { GroupSwitcher } from "@/components/profile/group-switcher";
 import { LeaveTeamButton } from "@/components/profile/leave-team-button";
 import { DeleteTeamForm } from "@/components/profile/delete-team-form";
 import { LogoutButton } from "@/components/profile/logout-button";
-import { ResetPinForm } from "@/components/profile/reset-pin-form";
+import { ChangePasswordForm } from "@/components/profile/change-password-form";
 import { ThemePicker } from "@/components/profile/theme-picker";
 import { TransferOwnershipForm, type OwnerCandidate } from "@/components/profile/transfer-ownership-form";
 import { UpdateNameForm } from "@/components/profile/update-name-form";
@@ -120,17 +120,14 @@ export default async function PerfilPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <KeyRound className="h-4 w-4" />
-              Redefinir PIN
+              Alterar PIN
             </CardTitle>
             <CardDescription>
-              Troca o PIN de 6 dígitos usado no login rápido.
+              Troca o PIN de 6 dígitos usado no login.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResetPinForm
-              phoneE164={profile?.phone}
-              phoneDisplay={profile?.phone ? formatPhoneDisplay(profile.phone) : undefined}
-            />
+            <ChangePasswordForm />
           </CardContent>
         </Card>
 

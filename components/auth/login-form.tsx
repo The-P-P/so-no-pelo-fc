@@ -2,20 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Phone, User, ArrowLeft, KeyRound } from "lucide-react";
+import { Loader2, Mail, User, KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import {
-  formatBrazilPhoneInput,
-  toE164Brazil,
-  formatPhoneDisplay,
-} from "@/lib/phone";
-import {
-  getSavedPhone,
-  savePhone,
-  hasSavedPin,
-  markPinSet,
-  clearPinFlag,
-} from "@/lib/auth-storage";
+import { getSavedEmail, saveEmail } from "@/lib/auth-storage";
+import { isValidPin, pinValidationError, sanitizePinInput } from "@/lib/pin";
+import { mapAuthError } from "@/lib/auth-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,156 +18,226 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-type Step = "quick" | "sms" | "otp" | "set-pin";
+type Mode = "login" | "signup" | "forgot" | "reset-pin";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
   const urlError = searchParams.get("error");
+  const recoveryStep = searchParams.get("step") === "reset-pin";
 
-  const [step, setStep] = useState<Step>("quick");
-  const [phone, setPhone] = useState("");
+  const [mode, setMode] = useState<Mode>("login");
+  const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
-  const [otp, setOtp] = useState("");
-  const [phoneE164, setPhoneE164] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(urlError);
-  const [isReturningUser, setIsReturningUser] = useState(false);
-  const [resettingPin, setResettingPin] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved = getSavedPhone();
-    if (saved) {
-      setPhone(saved);
-      setIsReturningUser(true);
-      setStep(hasSavedPin() ? "quick" : "sms");
-    }
+    const saved = getSavedEmail();
+    if (saved) setEmail(saved);
   }, []);
 
-  async function handleQuickLogin(e: React.FormEvent) {
+  useEffect(() => {
+    if (!recoveryStep) return;
+
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setMode("reset-pin");
+        if (user.email) setEmail(user.email);
+      }
+    });
+  }, [recoveryStep]);
+
+  function validatePinPair(
+    value: string,
+    confirm: string,
+    confirmLabel = "Os PINs não batem."
+  ): string | null {
+    const pinError = pinValidationError(value);
+    if (pinError) return pinError;
+    if (!isValidPin(value)) return "O PIN precisa ter exatamente 6 dígitos.";
+    if (value !== confirm) return confirmLabel;
+    return null;
+  }
+
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
-    const e164 = toE164Brazil(phone);
-    if (!e164) {
-      setError("Digite um celular válido com DDD.");
-      setLoading(false);
-      return;
-    }
-
-    if (pin.length < 6) {
-      setError("O PIN tem 6 dígitos.");
+    if (!isValidPin(pin)) {
+      setError("O PIN precisa ter exatamente 6 dígitos.");
       setLoading(false);
       return;
     }
 
     const supabase = createClient();
+    const normalizedEmail = email.trim().toLowerCase();
     const { error: authError } = await supabase.auth.signInWithPassword({
-      phone: e164,
+      email: normalizedEmail,
       password: pin,
     });
 
     if (authError) {
-      setError("PIN incorreto. Tenta de novo ou usa o código SMS.");
+      setError(mapAuthError(authError.message));
       setLoading(false);
       return;
     }
 
-    savePhone(phone);
+    saveEmail(normalizedEmail);
     router.push(redirectTo);
     router.refresh();
   }
 
-  async function handleSendOtp(e: React.FormEvent) {
+  async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
-    const e164 = toE164Brazil(phone);
-    if (!e164) {
-      setError("Digite um celular válido com DDD. Ex: (11) 99999-9999");
+    const validationError = validatePinPair(pin, confirmPin);
+    if (validationError) {
+      setError(validationError);
       setLoading(false);
       return;
     }
 
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithOtp({
-      phone: e164,
+    const normalizedEmail = email.trim().toLowerCase();
+    const authCallback = `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`;
+
+    const { data, error: authError } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password: pin,
       options: {
         data: fullName.trim() ? { full_name: fullName.trim() } : undefined,
+        emailRedirectTo: authCallback,
       },
     });
 
     if (authError) {
-      setError(authError.message);
+      setError(mapAuthError(authError.message));
       setLoading(false);
       return;
     }
 
-    setPhoneE164(e164);
-    savePhone(phone);
-    setStep("otp");
+    if (data.user && data.user.identities?.length === 0) {
+      setError(
+        "Este e-mail já está cadastrado. Entra com teu PIN ou usa “Esqueci o PIN”."
+      );
+      setMode("login");
+      setLoading(false);
+      return;
+    }
+
+    saveEmail(normalizedEmail);
+
+    if (data.session) {
+      router.push(redirectTo);
+      router.refresh();
+      return;
+    }
+
+    // Confirmação desligada: algumas configs não devolvem session no signUp
+    const { data: loginData, error: loginError } =
+      await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: pin,
+      });
+
+    if (!loginError && loginData.session) {
+      router.push(redirectTo);
+      router.refresh();
+      return;
+    }
+
+    if (data.user && !data.user.email_confirmed_at) {
+      setSuccess(
+        "Conta criada! Abre o e-mail de confirmação e clica no link. Depois entra com teu PIN."
+      );
+      setMode("login");
+      setPin("");
+      setConfirmPin("");
+      setLoading(false);
+      return;
+    }
+
+    setError(
+      mapAuthError(
+        loginError?.message ??
+          "Conta criada, mas não foi possível entrar automaticamente. Tenta login manual."
+      )
+    );
+    setMode("login");
+    setPin("");
+    setConfirmPin("");
     setLoading(false);
   }
 
-  async function handleVerifyOtp(e: React.FormEvent) {
+  async function handleForgot(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
-    if (otp.length < 6) {
-      setError("O código tem 6 dígitos.");
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setError("Informe o e-mail da conta.");
       setLoading(false);
       return;
     }
 
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.verifyOtp({
-      phone: phoneE164,
-      token: otp,
-      type: "sms",
-    });
+    const resetRedirect = `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent("/login?step=reset-pin")}`;
+    const { error: authError } = await supabase.auth.resetPasswordForEmail(
+      normalizedEmail,
+      { redirectTo: resetRedirect }
+    );
 
     if (authError) {
-      setError(authError.message);
+      setError(mapAuthError(authError.message));
       setLoading(false);
       return;
     }
 
-    // Primeira vez ou redefinindo PIN após SMS
-    if (!hasSavedPin() || resettingPin) {
-      setResettingPin(false);
-      setStep("set-pin");
-      setLoading(false);
-      return;
-    }
-
-    router.push(redirectTo);
-    router.refresh();
+    saveEmail(normalizedEmail);
+    setSuccess(
+      "Enviamos um link pro teu e-mail. Abre o link e define um PIN novo."
+    );
+    setLoading(false);
   }
 
-  async function handleSetPin(e: React.FormEvent) {
+  async function handleResetPin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
-    if (pin.length < 6) {
-      setError("O PIN precisa ter 6 dígitos.");
-      setLoading(false);
-      return;
-    }
-
-    if (pin !== confirmPin) {
-      setError("Os PINs não batem. Confere aí.");
+    const validationError = validatePinPair(pin, confirmPin);
+    if (validationError) {
+      setError(validationError);
       setLoading(false);
       return;
     }
 
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setError("Link expirado. Pede um novo em “Esqueci o PIN”.");
+      setMode("forgot");
+      setLoading(false);
+      return;
+    }
+
     const { error: authError } = await supabase.auth.updateUser({
       password: pin,
     });
@@ -187,51 +248,22 @@ export function LoginForm() {
       return;
     }
 
-    markPinSet();
-    savePhone(phone);
     router.push(redirectTo);
     router.refresh();
   }
 
-  async function handleResendOtp() {
-    setLoading(true);
-    setError(null);
-
-    const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithOtp({
-      phone: phoneE164,
-    });
-
-    if (authError) {
-      setError(authError.message);
-    }
-
-    setLoading(false);
-  }
-
-  function goToSmsFlow(forgotPin = false) {
-    if (forgotPin) {
-      setResettingPin(true);
-      clearPinFlag();
-    }
-    setStep("sms");
-    setPin("");
-    setOtp("");
-    setError(null);
-  }
-
-  const titleByStep: Record<Step, string> = {
-    quick: "Bem-vindo de volta!",
-    sms: isReturningUser ? "Entrar com SMS" : "Entra na pelada",
-    otp: `Código enviado pro ${formatPhoneDisplay(phoneE164)}`,
-    "set-pin": "Cria teu PIN",
+  const titles: Record<Mode, string> = {
+    login: "Entra na pelada",
+    signup: "Cria tua conta",
+    forgot: "Esqueceu o PIN?",
+    "reset-pin": "Novo PIN",
   };
 
-  const descByStep: Record<Step, string> = {
-    quick: "Celular + PIN — sem SMS toda vez.",
-    sms: "Vamos te mandar um código de 6 dígitos.",
-    otp: "Cola o código que chegou no SMS.",
-    "set-pin": "6 dígitos pra entrar rápido da próxima vez.",
+  const descriptions: Record<Mode, string> = {
+    login: "E-mail + PIN de 6 dígitos.",
+    signup: "Escolhe um e-mail e um PIN de 6 dígitos.",
+    forgot: "Mandamos um link pro teu e-mail pra redefinir o PIN.",
+    "reset-pin": "Define um PIN novo de 6 dígitos.",
   };
 
   return (
@@ -243,8 +275,8 @@ export function LoginForm() {
         <CardTitle className="text-2xl font-bold tracking-tight">
           Só no Pelo FC
         </CardTitle>
-        <CardDescription>{descByStep[step]}</CardDescription>
-        <p className="text-sm font-medium text-foreground">{titleByStep[step]}</p>
+        <CardDescription>{descriptions[mode]}</CardDescription>
+        <p className="text-sm font-medium text-foreground">{titles[mode]}</p>
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -253,33 +285,23 @@ export function LoginForm() {
             {error}
           </div>
         )}
+        {success && (
+          <div className="rounded-md border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary">
+            {success}
+          </div>
+        )}
 
-        {/* Login rápido: celular + PIN */}
-        {step === "quick" && (
-          <form onSubmit={handleQuickLogin} className="space-y-4">
-            <PhoneField phone={phone} setPhone={setPhone} loading={loading} />
-
-            <div className="space-y-2">
-              <Label htmlFor="pin">PIN de 6 dígitos</Label>
-              <div className="relative">
-                <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="pin"
-                  type="password"
-                  inputMode="numeric"
-                  placeholder="••••••"
-                  value={pin}
-                  onChange={(e) =>
-                    setPin(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  className="h-12 pl-10 text-center text-lg tracking-[0.4em]"
-                  autoComplete="current-password"
-                  required
-                  disabled={loading}
-                  maxLength={6}
-                />
-              </div>
-            </div>
+        {mode === "login" && (
+          <form onSubmit={handleLogin} className="space-y-4">
+            <EmailField email={email} setEmail={setEmail} loading={loading} />
+            <PinField
+              id="loginPin"
+              label="PIN (6 dígitos)"
+              pin={pin}
+              setPin={setPin}
+              loading={loading}
+              autoComplete="current-password"
+            />
 
             <Button
               type="submit"
@@ -296,40 +318,110 @@ export function LoginForm() {
               )}
             </Button>
 
+            <div className="flex flex-col gap-2 text-center text-sm">
+              <button
+                type="button"
+                className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                onClick={() => {
+                  setMode("signup");
+                  setPin("");
+                  setConfirmPin("");
+                  setError(null);
+                  setSuccess(null);
+                }}
+                disabled={loading}
+              >
+                Criar conta
+              </button>
+              <button
+                type="button"
+                className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                onClick={() => {
+                  setMode("forgot");
+                  setPin("");
+                  setError(null);
+                  setSuccess(null);
+                }}
+                disabled={loading}
+              >
+                Esqueci o PIN
+              </button>
+            </div>
+          </form>
+        )}
+
+        {mode === "signup" && (
+          <form onSubmit={handleSignup} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Apelido (opcional)</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="fullName"
+                  placeholder="Zagueiro Violento"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="h-12 pl-10 text-base"
+                  autoComplete="name"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <EmailField email={email} setEmail={setEmail} loading={loading} />
+            <PinField
+              id="signupPin"
+              label="Cria um PIN"
+              pin={pin}
+              setPin={setPin}
+              loading={loading}
+              autoComplete="new-password"
+            />
+            <PinField
+              id="confirmSignupPin"
+              label="Confirma o PIN"
+              pin={confirmPin}
+              setPin={setConfirmPin}
+              loading={loading}
+              autoComplete="new-password"
+            />
+
+            <Button
+              type="submit"
+              className="h-12 w-full text-base"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Criando conta...
+                </>
+              ) : (
+                "Criar conta"
+              )}
+            </Button>
+
             <Button
               type="button"
               variant="ghost"
-              className="w-full text-sm"
-              onClick={() => goToSmsFlow(true)}
+              className="w-full"
+              onClick={() => {
+                setMode("login");
+                setPin("");
+                setConfirmPin("");
+                setError(null);
+                setSuccess(null);
+              }}
               disabled={loading}
             >
-              Esqueci o PIN / entrar com SMS
+              Já tenho conta
             </Button>
           </form>
         )}
 
-        {/* SMS: enviar código */}
-        {step === "sms" && (
-          <form onSubmit={handleSendOtp} className="space-y-4">
-            {!isReturningUser && (
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Apelido (opcional)</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="fullName"
-                    placeholder="Zagueiro Violento"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="h-12 pl-10 text-base"
-                    autoComplete="name"
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-            )}
-
-            <PhoneField phone={phone} setPhone={setPhone} loading={loading} />
+        {mode === "forgot" && (
+          <form onSubmit={handleForgot} className="space-y-4">
+            <EmailField email={email} setEmail={setEmail} loading={loading} />
 
             <Button
               type="submit"
@@ -339,139 +431,47 @@ export function LoginForm() {
               {loading ? (
                 <>
                   <Loader2 className="animate-spin" />
-                  Enviando código...
+                  Enviando...
                 </>
               ) : (
-                "Receber código SMS"
+                "Enviar link de redefinição"
               )}
             </Button>
-
-            {hasSavedPin() && (
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-sm"
-                onClick={() => {
-                  setStep("quick");
-                  setError(null);
-                }}
-                disabled={loading}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar pro login com PIN
-              </Button>
-            )}
-          </form>
-        )}
-
-        {/* OTP: confirmar SMS */}
-        {step === "otp" && (
-          <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="otp">Código do SMS</Label>
-              <Input
-                id="otp"
-                type="text"
-                inputMode="numeric"
-                placeholder="000000"
-                value={otp}
-                onChange={(e) =>
-                  setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                }
-                className="h-14 text-center text-2xl tracking-[0.5em]"
-                autoComplete="one-time-code"
-                required
-                disabled={loading}
-                maxLength={6}
-              />
-              <p className="text-xs text-muted-foreground">
-                O código expira em ~1 minuto e só vale uma vez.
-              </p>
-            </div>
 
             <Button
-              type="submit"
-              className="h-12 w-full text-base"
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => {
+                setMode("login");
+                setError(null);
+                setSuccess(null);
+              }}
               disabled={loading}
             >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin" />
-                  Verificando...
-                </>
-              ) : (
-                "Confirmar código"
-              )}
+              Voltar pro login
             </Button>
-
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                type="button"
-                variant="ghost"
-                className="flex-1"
-                onClick={() => {
-                  setStep("sms");
-                  setOtp("");
-                  setError(null);
-                }}
-                disabled={loading}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Trocar número
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={handleResendOtp}
-                disabled={loading}
-              >
-                Reenviar SMS
-              </Button>
-            </div>
           </form>
         )}
 
-        {/* Criar PIN após primeiro SMS */}
-        {step === "set-pin" && (
-          <form onSubmit={handleSetPin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="newPin">Escolhe um PIN</Label>
-              <Input
-                id="newPin"
-                type="password"
-                inputMode="numeric"
-                placeholder="6 dígitos"
-                value={pin}
-                onChange={(e) =>
-                  setPin(e.target.value.replace(/\D/g, "").slice(0, 6))
-                }
-                className="h-12 text-center text-lg tracking-[0.4em]"
-                autoComplete="new-password"
-                required
-                disabled={loading}
-                maxLength={6}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPin">Confirma o PIN</Label>
-              <Input
-                id="confirmPin"
-                type="password"
-                inputMode="numeric"
-                placeholder="6 dígitos"
-                value={confirmPin}
-                onChange={(e) =>
-                  setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))
-                }
-                className="h-12 text-center text-lg tracking-[0.4em]"
-                autoComplete="new-password"
-                required
-                disabled={loading}
-                maxLength={6}
-              />
-            </div>
+        {mode === "reset-pin" && (
+          <form onSubmit={handleResetPin} className="space-y-4">
+            <PinField
+              id="newPin"
+              label="Novo PIN"
+              pin={pin}
+              setPin={setPin}
+              loading={loading}
+              autoComplete="new-password"
+            />
+            <PinField
+              id="confirmNewPin"
+              label="Confirma o novo PIN"
+              pin={confirmPin}
+              setPin={setConfirmPin}
+              loading={loading}
+              autoComplete="new-password"
+            />
 
             <Button
               type="submit"
@@ -484,7 +484,7 @@ export function LoginForm() {
                   Salvando...
                 </>
               ) : (
-                "Salvar e entrar"
+                "Salvar PIN e entrar"
               )}
             </Button>
           </form>
@@ -494,34 +494,68 @@ export function LoginForm() {
   );
 }
 
-function PhoneField({
-  phone,
-  setPhone,
+function EmailField({
+  email,
+  setEmail,
   loading,
 }: {
-  phone: string;
-  setPhone: (v: string) => void;
+  email: string;
+  setEmail: (v: string) => void;
   loading: boolean;
 }) {
   return (
     <div className="space-y-2">
-      <Label htmlFor="phone">Celular</Label>
+      <Label htmlFor="email">E-mail</Label>
       <div className="relative">
-        <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <div className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-          +55
-        </div>
+        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          id="phone"
-          type="tel"
-          inputMode="numeric"
-          placeholder="(11) 99999-9999"
-          value={phone}
-          onChange={(e) => setPhone(formatBrazilPhoneInput(e.target.value))}
-          className="h-12 pl-16 text-base tracking-wide"
-          autoComplete="tel"
+          id="email"
+          type="email"
+          placeholder="seu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="h-12 pl-10 text-base"
+          autoComplete="email"
           required
           disabled={loading}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PinField({
+  id,
+  label,
+  pin,
+  setPin,
+  loading,
+  autoComplete,
+}: {
+  id: string;
+  label: string;
+  pin: string;
+  setPin: (v: string) => void;
+  loading: boolean;
+  autoComplete: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          id={id}
+          type="password"
+          inputMode="numeric"
+          placeholder="000000"
+          value={pin}
+          onChange={(e) => setPin(sanitizePinInput(e.target.value))}
+          className="h-12 pl-10 text-center text-lg tracking-[0.4em]"
+          autoComplete={autoComplete}
+          required
+          disabled={loading}
+          maxLength={6}
         />
       </div>
     </div>

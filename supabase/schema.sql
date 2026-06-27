@@ -31,19 +31,24 @@ CREATE UNIQUE INDEX idx_profiles_phone ON profiles(phone) WHERE phone IS NOT NUL
 
 -- Trigger: cria profile ao registrar usuário (e-mail ou telefone)
 CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
-  INSERT INTO profiles (id, email, phone, full_name, avatar_url)
+  INSERT INTO public.profiles (id, email, phone, full_name, avatar_url)
   VALUES (
     NEW.id,
     NEW.email,
     NEW.phone,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name'),
     NEW.raw_user_meta_data->>'avatar_url'
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
