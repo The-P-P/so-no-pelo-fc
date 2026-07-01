@@ -15,6 +15,10 @@ export type TeamStatWeights =
 export type Pelada = Database["public"]["Tables"]["peladas"]["Row"];
 export type PeladaAttendance =
   Database["public"]["Tables"]["pelada_attendance"]["Row"];
+export type PeladaTeamDraft =
+  Database["public"]["Tables"]["pelada_team_drafts"]["Row"];
+export type PeladaTeamAssignment =
+  Database["public"]["Tables"]["pelada_team_assignments"]["Row"];
 export type PlayerStat = Database["public"]["Tables"]["player_stats"]["Row"];
 export type RankingGeral = Database["public"]["Views"]["ranking_geral"]["Row"];
 export type RankingPelada = Database["public"]["Views"]["ranking_pelada"]["Row"];
@@ -37,6 +41,23 @@ export type AttendanceMember = {
   avatarUrl: string | null;
   present: boolean;
   hasMarked: boolean;
+};
+
+export type TeamDistributionPlayer = {
+  participantId: string;
+  participantType: ParticipantType;
+  displayName: string;
+  avatarUrl: string | null;
+  skill: number;
+  peladasJogadas: number;
+};
+
+export type TeamDistribution = {
+  playersPerTeam: number;
+  teams: TeamDistributionPlayer[][];
+  teamTotals: number[];
+  unassignedPlayers: TeamDistributionPlayer[];
+  presentCount: number;
 };
 
 export type RankingEntry = RankingGeral & {

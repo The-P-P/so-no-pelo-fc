@@ -312,6 +312,68 @@ export interface Database {
           },
         ];
       };
+      pelada_team_drafts: {
+        Row: {
+          pelada_id: string;
+          players_per_team: number;
+          skill_metric: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          pelada_id: string;
+          players_per_team?: number;
+          skill_metric?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          players_per_team?: number;
+          skill_metric?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pelada_team_drafts_pelada_id_fkey";
+            columns: ["pelada_id"];
+            referencedRelation: "peladas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      pelada_team_assignments: {
+        Row: {
+          id: string;
+          pelada_id: string;
+          team_index: number;
+          user_id: string | null;
+          fictional_player_id: string | null;
+          sort_order: number;
+        };
+        Insert: {
+          id?: string;
+          pelada_id: string;
+          team_index: number;
+          user_id?: string | null;
+          fictional_player_id?: string | null;
+          sort_order?: number;
+        };
+        Update: {
+          team_index?: number;
+          user_id?: string | null;
+          fictional_player_id?: string | null;
+          sort_order?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pelada_team_assignments_pelada_id_fkey";
+            columns: ["pelada_id"];
+            referencedRelation: "peladas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       player_stats: {
         Row: {
           id: string;

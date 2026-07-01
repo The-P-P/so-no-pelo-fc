@@ -25,8 +25,10 @@ import {
 import { getAttendanceMembers } from "@/lib/actions/attendance-actions";
 
 import { AttendanceCard } from "@/components/peladas/attendance-card";
+import { TeamDistributionCard } from "@/components/peladas/team-distribution-card";
 import { EditPeladaCard } from "@/components/peladas/edit-pelada-card";
 import { getVictoryCountsByPelada } from "@/lib/actions/ranked-actions";
+import { getTeamDistribution } from "@/lib/actions/team-distribution-actions";
 import { VICTORY_PDL } from "@/lib/ranked";
 
 import { DeletePeladaForm } from "@/components/peladas/delete-pelada-form";
@@ -86,12 +88,13 @@ export default async function PeladaDetailPage({
 
   const permissions = getTeamPermissions(role);
 
-  const [participants, stats, attendanceMembers, victoryCounts] =
+  const [participants, stats, attendanceMembers, victoryCounts, teamDistribution] =
     await Promise.all([
       getParticipants(team.id),
       getPeladaStats(id),
       getAttendanceMembers(team.id, id),
       getVictoryCountsByPelada(team.id, id),
+      getTeamDistribution(id),
     ]);
 
 
@@ -171,7 +174,13 @@ export default async function PeladaDetailPage({
           canManageOthers={permissions.canApproveStats}
         />
 
-
+        {teamDistribution && (
+          <TeamDistributionCard
+            peladaId={id}
+            distribution={teamDistribution}
+            canManage={permissions.canApproveStats}
+          />
+        )}
 
         {permissions.canApproveStats && pendingStats.length > 0 && (
 
