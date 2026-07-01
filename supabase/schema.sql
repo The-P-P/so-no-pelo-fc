@@ -367,6 +367,36 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 REVOKE ALL ON FUNCTION transfer_team_ownership(UUID, UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION transfer_team_ownership(UUID, UUID) TO authenticated;
 
+-- Membro sai do grupo (exceto owner)
+CREATE OR REPLACE FUNCTION leave_team(p_team_id UUID)
+RETURNS VOID AS $$
+DECLARE
+  v_role team_role;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Não autenticado';
+  END IF;
+
+  SELECT role INTO v_role
+  FROM team_members
+  WHERE team_id = p_team_id AND user_id = auth.uid();
+
+  IF v_role IS NULL THEN
+    RAISE EXCEPTION 'Você não é membro deste grupo';
+  END IF;
+
+  IF v_role = 'owner' THEN
+    RAISE EXCEPTION 'Owner precisa transferir ownership antes de sair do grupo';
+  END IF;
+
+  DELETE FROM team_members
+  WHERE team_id = p_team_id AND user_id = auth.uid();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+REVOKE ALL ON FUNCTION leave_team(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION leave_team(UUID) TO authenticated;
+
 CREATE OR REPLACE FUNCTION get_team_by_invite_token(p_token UUID)
 RETURNS TABLE (id UUID, name TEXT, invite_role team_role) AS $$
 BEGIN

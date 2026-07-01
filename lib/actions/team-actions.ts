@@ -62,7 +62,12 @@ async function setActiveTeamCookie(teamId: string) {
 
 async function clearActiveTeamCookie() {
   const cookieStore = await cookies();
-  cookieStore.delete(ACTIVE_TEAM_COOKIE);
+  cookieStore.set(ACTIVE_TEAM_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
 }
 
 /** Cria um novo grupo — usuário vira owner automaticamente (trigger no banco) */
@@ -260,13 +265,34 @@ export async function leaveTeam(): Promise<TeamActionResult> {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("team_members")
-    .delete()
-    .eq("team_id", team.id)
-    .eq("user_id", user.id);
+  const { error } = await supabase.rpc("leave_team", {
+    p_team_id: team.id,
+  });
 
-  if (error) return { error: error.message };
+  if (error) {
+    const rpcMissing =
+      error.code === "PGRST202" ||
+      error.message.includes("leave_team") ||
+      error.message.includes("Could not find the function");
+
+    if (!rpcMissing) {
+      return { error: error.message };
+    }
+
+    const { error: deleteError, count } = await supabase
+      .from("team_members")
+      .delete({ count: "exact" })
+      .eq("team_id", team.id)
+      .eq("user_id", user.id);
+
+    if (deleteError) return { error: deleteError.message };
+    if (!count) {
+      return {
+        error:
+          "Não foi possível sair do grupo. Rode a migration 014 no Supabase ou peça ajuda a um admin.",
+      };
+    }
+  }
 
   const memberships = await getUserTeamMemberships();
   const nextTeam = memberships.find((m) => m.team.id !== team.id);
@@ -278,6 +304,7 @@ export async function leaveTeam(): Promise<TeamActionResult> {
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/perfil");
-  return { success: "Você saiu do grupo." };
+  revalidatePath("/dashboard/membros");
+  redirect("/dashboard");
 }
 

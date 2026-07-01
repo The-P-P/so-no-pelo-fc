@@ -494,6 +494,10 @@ export interface Database {
         Args: { p_team_id: string; p_new_owner_id: string };
         Returns: undefined;
       };
+      leave_team: {
+        Args: { p_team_id: string };
+        Returns: undefined;
+      };
       get_team_by_invite_token: {
         Args: { p_token: string };
         Returns: {

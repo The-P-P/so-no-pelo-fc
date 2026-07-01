@@ -5,23 +5,22 @@ import { LogOut } from "lucide-react";
 import { leaveTeam } from "@/lib/actions/team-actions";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/providers/toast-provider";
-import { useRouter } from "next/navigation";
 
 export function LeaveTeamButton() {
   const [pending, startTransition] = useTransition();
   const { showToast } = useToast();
-  const router = useRouter();
 
   function handleLeave() {
+    const confirmed = window.confirm(
+      "Tem certeza que deseja sair deste grupo? Você perderá acesso às peladas e ao ranking dele."
+    );
+    if (!confirmed) return;
+
     startTransition(async () => {
       const result = await leaveTeam();
-      if (result.error) {
+      if (result?.error) {
         showToast(result.error, "error");
-        return;
       }
-
-      showToast(result.success ?? "Você saiu do grupo.");
-      router.refresh();
     });
   }
 

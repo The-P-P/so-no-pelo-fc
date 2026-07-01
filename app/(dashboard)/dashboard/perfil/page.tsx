@@ -193,7 +193,8 @@ export default async function PerfilPage() {
             <CardHeader>
               <CardTitle className="text-base">Transferir ownership</CardTitle>
               <CardDescription>
-                Passe o grupo para outro membro antes de sair.
+                Como dono, você precisa passar o grupo para outro membro antes de
+                poder sair.
               </CardDescription>
             </CardHeader>
             <CardContent>
