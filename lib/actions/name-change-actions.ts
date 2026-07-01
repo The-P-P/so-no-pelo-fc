@@ -44,6 +44,7 @@ export async function getPendingProfileChangeRequests(
       "id, team_id, user_id, change_type, requested_value, status, created_at, profile:profiles(full_name, avatar_url)"
     )
     .eq("team_id", teamId)
+    .eq("change_type", "nickname")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
@@ -77,23 +78,20 @@ export async function getUserPendingChangeRequests(
   teamId: string,
   userId: string
 ): Promise<{
-  fullName?: string;
   nickname?: string;
 }> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profile_change_requests")
-    .select("change_type, requested_value")
+    .select("requested_value")
     .eq("team_id", teamId)
     .eq("user_id", userId)
-    .eq("status", "pending");
+    .eq("change_type", "nickname")
+    .eq("status", "pending")
+    .maybeSingle();
 
-  const result: { fullName?: string; nickname?: string } = {};
-  for (const row of data ?? []) {
-    if (row.change_type === "full_name") result.fullName = row.requested_value;
-    if (row.change_type === "nickname") result.nickname = row.requested_value;
-  }
-  return result;
+  if (!data) return {};
+  return { nickname: data.requested_value };
 }
 
 async function upsertChangeRequest(
@@ -132,10 +130,7 @@ async function upsertChangeRequest(
 
   revalidateNameChangePaths();
   return {
-    success:
-      changeType === "full_name"
-        ? "Solicitação de nome enviada! Aguardando aprovação do admin."
-        : "Solicitação de apelido enviada! Aguardando aprovação do admin.",
+    success: "Solicitação de apelido enviada! Aguardando aprovação do admin.",
   };
 }
 
@@ -143,18 +138,7 @@ export async function submitProfileNameChange(
   fullName: string
 ): Promise<NameChangeActionResult> {
   const user = await requireUser();
-  const { team, role } = await getDashboardContext();
-  const permissions = getTeamPermissions(role);
-
-  if (!team) {
-    return applyProfileNameDirect(user.id, fullName);
-  }
-
-  if (permissions.canManageTeam) {
-    return applyProfileNameDirect(user.id, fullName);
-  }
-
-  return upsertChangeRequest(team.id, user.id, "full_name", fullName);
+  return applyProfileNameDirect(user.id, fullName);
 }
 
 export async function submitTeamNicknameChange(
@@ -225,7 +209,7 @@ export async function approveProfileChangeRequest(
 
   const permissions = getTeamPermissions(role);
   if (!permissions.canManageMembers) {
-    return { error: "Apenas admins podem aprovar alterações de nome." };
+    return { error: "Apenas admins podem aprovar alterações de apelido." };
   }
 
   const supabase = await createClient();
@@ -279,7 +263,7 @@ export async function rejectProfileChangeRequest(
 
   const permissions = getTeamPermissions(role);
   if (!permissions.canManageMembers) {
-    return { error: "Apenas admins podem rejeitar alterações de nome." };
+    return { error: "Apenas admins podem rejeitar alterações de apelido." };
   }
 
   const supabase = await createClient();

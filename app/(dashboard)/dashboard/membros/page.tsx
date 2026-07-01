@@ -59,10 +59,10 @@ export default async function MembrosPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Alterações de nome pendentes ({pendingNameChanges.length})
+                Apelidos pendentes ({pendingNameChanges.length})
               </CardTitle>
               <CardDescription>
-                Aprove ou rejeite solicitações de nome e apelido dos jogadores.
+                Aprove ou rejeite solicitações de apelido dos jogadores.
               </CardDescription>
             </CardHeader>
             <CardContent>

@@ -36,7 +36,7 @@ export default async function PerfilPage() {
     team && profile
       ? await getUserPendingChangeRequests(team.id, profile.id)
       : {};
-  const requiresApproval = Boolean(team && !permissions.canManageTeam);
+  const nicknameRequiresApproval = Boolean(team && !permissions.canManageTeam);
 
   const contact = profile?.phone
     ? formatPhoneDisplay(profile.phone)
@@ -97,15 +97,10 @@ export default async function PerfilPage() {
             </CardTitle>
             <CardDescription>
               Como você aparece no app e no elenco.
-              {requiresApproval && " Alterações precisam de aprovação do admin."}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <UpdateNameForm
-              currentName={profile?.full_name}
-              pendingName={pendingChanges.fullName}
-              requiresApproval={requiresApproval}
-            />
+            <UpdateNameForm currentName={profile?.full_name} />
           </CardContent>
         </Card>
 
@@ -117,7 +112,8 @@ export default async function PerfilPage() {
             </CardTitle>
             <CardDescription>
               Apelido usado no ranking e nas peladas do grupo ativo.
-              {requiresApproval && " Alterações precisam de aprovação do admin."}
+              {nicknameRequiresApproval &&
+                " Alterações precisam de aprovação do admin."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -125,7 +121,7 @@ export default async function PerfilPage() {
               currentNickname={nickname}
               pendingNickname={pendingChanges.nickname}
               teamName={team?.name}
-              requiresApproval={requiresApproval}
+              requiresApproval={nicknameRequiresApproval}
             />
           </CardContent>
         </Card>

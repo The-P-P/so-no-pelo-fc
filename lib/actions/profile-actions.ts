@@ -11,7 +11,7 @@ export type ProfileActionResult = {
   success?: string;
 };
 
-/** Atualiza o nome exibido no perfil (direto para admin; solicitação para jogadores) */
+/** Atualiza o nome exibido no perfil (livre para todos os jogadores) */
 export async function updateProfileName(
   _prev: ProfileActionResult,
   formData: FormData

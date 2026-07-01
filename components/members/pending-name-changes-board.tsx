@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, User, Sparkles, X } from "lucide-react";
+import { Check, Loader2, Sparkles, X } from "lucide-react";
 import {
   approveProfileChangeRequest,
   rejectProfileChangeRequest,
@@ -13,34 +13,6 @@ import { useToast } from "@/components/providers/toast-provider";
 
 interface PendingNameChangesBoardProps {
   requests: ProfileChangeRequest[];
-}
-
-function formatChange(request: ProfileChangeRequest): {
-  label: string;
-  from: string;
-  to: string;
-  icon: typeof User;
-} {
-  const displayName =
-    request.current_nickname ??
-    request.profile.full_name ??
-    "Jogador";
-
-  if (request.change_type === "full_name") {
-    return {
-      label: displayName,
-      from: request.profile.full_name ?? "—",
-      to: request.requested_value,
-      icon: User,
-    };
-  }
-
-  return {
-    label: displayName,
-    from: request.current_nickname ?? "—",
-    to: request.requested_value || "(remover apelido)",
-    icon: Sparkles,
-  };
 }
 
 export function PendingNameChangesBoard({
@@ -74,10 +46,11 @@ export function PendingNameChangesBoard({
   return (
     <div className="space-y-3">
       {requests.map((request) => {
-        const { label, from, to, icon: Icon } = formatChange(request);
+        const displayName =
+          request.current_nickname ??
+          request.profile.full_name ??
+          "Jogador";
         const busy = isPending && pendingId === request.id;
-        const fieldLabel =
-          request.change_type === "full_name" ? "Nome" : "Apelido";
 
         return (
           <div
@@ -86,11 +59,12 @@ export function PendingNameChangesBoard({
           >
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-1.5 text-sm font-medium">
-                <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                {label}
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                {displayName}
               </p>
               <p className="text-xs text-muted-foreground">
-                {fieldLabel}: {from} → {to}
+                Apelido: {request.current_nickname ?? "—"} →{" "}
+                {request.requested_value || "(remover apelido)"}
               </p>
             </div>
             <div className="flex gap-2">
