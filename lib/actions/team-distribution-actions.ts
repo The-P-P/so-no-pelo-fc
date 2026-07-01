@@ -343,17 +343,23 @@ export async function movePlayer(
 
   const supabase = await createClient();
 
-  const participantFilter =
-    participantType === "member"
-      ? { user_id: participantId, fictional_player_id: null }
-      : { user_id: null, fictional_player_id: participantId };
-
-  const { data: existing, error: fetchError } = await supabase
+  let assignmentQuery = supabase
     .from("pelada_team_assignments")
     .select("id, team_index")
-    .eq("pelada_id", peladaId)
-    .match(participantFilter)
-    .maybeSingle();
+    .eq("pelada_id", peladaId);
+
+  if (participantType === "member") {
+    assignmentQuery = assignmentQuery
+      .eq("user_id", participantId)
+      .is("fictional_player_id", null);
+  } else {
+    assignmentQuery = assignmentQuery
+      .eq("fictional_player_id", participantId)
+      .is("user_id", null);
+  }
+
+  const { data: existing, error: fetchError } =
+    await assignmentQuery.maybeSingle();
 
   if (fetchError) return { error: fetchError.message };
   if (!existing) return { error: "Jogador não está em nenhum time." };
