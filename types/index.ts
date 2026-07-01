@@ -58,6 +58,8 @@ export type TeamDistribution = {
   teamTotals: number[];
   unassignedPlayers: TeamDistributionPlayer[];
   presentCount: number;
+  hasOriginalSnapshot: boolean;
+  hasManualChanges: boolean;
 };
 
 export type RankingEntry = RankingGeral & {

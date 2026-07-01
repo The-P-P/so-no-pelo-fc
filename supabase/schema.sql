@@ -171,6 +171,7 @@ CREATE TABLE pelada_team_drafts (
   pelada_id UUID PRIMARY KEY REFERENCES peladas(id) ON DELETE CASCADE,
   players_per_team INT NOT NULL DEFAULT 5 CHECK (players_per_team >= 2),
   skill_metric TEXT NOT NULL DEFAULT 'avg_score',
+  original_assignments JSONB,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by UUID REFERENCES profiles(id) ON DELETE SET NULL
 );

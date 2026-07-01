@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Shuffle, Trash2, Users } from "lucide-react";
+import { Loader2, RotateCcw, Shuffle, Trash2, Users } from "lucide-react";
 import {
   clearTeamDistribution,
   generateTeamDistribution,
   movePlayer,
+  restoreOriginalDistribution,
 } from "@/lib/actions/team-distribution-actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,15 @@ interface TeamDistributionBoardProps {
   peladaId: string;
   distribution: TeamDistribution;
   canManage: boolean;
+}
+
+type FeedbackMessage = {
+  type: "error" | "success";
+  text: string;
+};
+
+function feedbackStorageKey(peladaId: string) {
+  return `team-dist-feedback-${peladaId}`;
 }
 
 function getInitials(name: string) {
@@ -44,29 +54,66 @@ export function TeamDistributionBoard({
   const [playersPerTeam, setPlayersPerTeam] = useState(
     distribution.playersPerTeam
   );
-  const [message, setMessage] = useState<{
-    type: "error" | "success";
-    text: string;
-  } | null>(null);
+  const [message, setMessage] = useState<FeedbackMessage | null>(null);
 
   const hasTeams = distribution.teams.length > 0;
   const teamCount = distribution.teams.length;
 
-  function handleGenerate() {
+  useEffect(() => {
+    const raw = sessionStorage.getItem(feedbackStorageKey(peladaId));
+    if (!raw) return;
+
+    sessionStorage.removeItem(feedbackStorageKey(peladaId));
+    try {
+      setMessage(JSON.parse(raw) as FeedbackMessage);
+    } catch {
+      // ignore invalid feedback payload
+    }
+  }, [peladaId]);
+
+  function persistFeedback(result: { error?: string; success?: string }) {
+    if (result.error) {
+      sessionStorage.setItem(
+        feedbackStorageKey(peladaId),
+        JSON.stringify({ type: "error", text: result.error })
+      );
+      return;
+    }
+
+    if (result.success) {
+      sessionStorage.setItem(
+        feedbackStorageKey(peladaId),
+        JSON.stringify({ type: "success", text: result.success })
+      );
+    }
+  }
+
+  function handleGenerate(isRedistribute: boolean) {
     setMessage(null);
     startTransition(async () => {
       const result = await generateTeamDistribution(
         peladaId,
-        playersPerTeam
+        playersPerTeam,
+        isRedistribute
       );
+      persistFeedback(result);
       if (result.error) {
         setMessage({ type: "error", text: result.error });
         return;
       }
-      setMessage({
-        type: "success",
-        text: result.success ?? "Times distribuídos!",
-      });
+      router.refresh();
+    });
+  }
+
+  function handleRestoreOriginal() {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await restoreOriginalDistribution(peladaId);
+      persistFeedback(result);
+      if (result.error) {
+        setMessage({ type: "error", text: result.error });
+        return;
+      }
       router.refresh();
     });
   }
@@ -75,6 +122,7 @@ export function TeamDistributionBoard({
     setMessage(null);
     startTransition(async () => {
       const result = await clearTeamDistribution(peladaId);
+      persistFeedback(result);
       if (result.error) {
         setMessage({ type: "error", text: result.error });
         return;
@@ -129,7 +177,7 @@ export function TeamDistributionBoard({
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              onClick={handleGenerate}
+              onClick={() => handleGenerate(hasTeams)}
               disabled={pending || distribution.presentCount < 2}
             >
               {pending ? (
@@ -139,6 +187,17 @@ export function TeamDistributionBoard({
               )}
               {hasTeams ? "Redistribuir" : "Distribuir"}
             </Button>
+            {hasTeams && distribution.hasOriginalSnapshot && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleRestoreOriginal}
+                disabled={pending || !distribution.hasManualChanges}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Restaurar original
+              </Button>
+            )}
             {hasTeams && (
               <Button
                 type="button"

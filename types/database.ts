@@ -7,6 +7,13 @@ export type TeamRole = "owner" | "admin" | "player";
 export type StatStatus = "pending" | "approved" | "rejected";
 export type ProfileChangeType = "full_name" | "nickname";
 
+export type AssignmentSnapshot = {
+  team_index: number;
+  user_id: string | null;
+  fictional_player_id: string | null;
+  sort_order: number;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -317,6 +324,7 @@ export interface Database {
           pelada_id: string;
           players_per_team: number;
           skill_metric: string;
+          original_assignments: AssignmentSnapshot[] | null;
           updated_at: string;
           updated_by: string | null;
         };
@@ -324,12 +332,14 @@ export interface Database {
           pelada_id: string;
           players_per_team?: number;
           skill_metric?: string;
+          original_assignments?: AssignmentSnapshot[] | null;
           updated_at?: string;
           updated_by?: string | null;
         };
         Update: {
           players_per_team?: number;
           skill_metric?: string;
+          original_assignments?: AssignmentSnapshot[] | null;
           updated_at?: string;
           updated_by?: string | null;
         };
