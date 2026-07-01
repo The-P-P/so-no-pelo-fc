@@ -10,6 +10,7 @@ import { UpdateNameForm } from "@/components/profile/update-name-form";
 import { UpdateNicknameForm } from "@/components/profile/update-nickname-form";
 import { InviteLinks } from "@/components/teams/invite-links";
 import { getTeamMembers } from "@/lib/actions/member-actions";
+import { getUserPendingChangeRequests } from "@/lib/actions/name-change-actions";
 import { getDashboardContext } from "@/lib/auth";
 import { getTeamPermissions } from "@/types";
 import {
@@ -31,6 +32,11 @@ export default async function PerfilPage() {
   const { profile, team, role, teams, nickname } = await getDashboardContext();
   const permissions = getTeamPermissions(role);
   const members = team ? await getTeamMembers(team.id) : [];
+  const pendingChanges =
+    team && profile
+      ? await getUserPendingChangeRequests(team.id, profile.id)
+      : {};
+  const requiresApproval = Boolean(team && !permissions.canManageTeam);
 
   const contact = profile?.phone
     ? formatPhoneDisplay(profile.phone)
@@ -91,10 +97,15 @@ export default async function PerfilPage() {
             </CardTitle>
             <CardDescription>
               Como você aparece no app e no elenco.
+              {requiresApproval && " Alterações precisam de aprovação do admin."}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <UpdateNameForm currentName={profile?.full_name} />
+            <UpdateNameForm
+              currentName={profile?.full_name}
+              pendingName={pendingChanges.fullName}
+              requiresApproval={requiresApproval}
+            />
           </CardContent>
         </Card>
 
@@ -106,12 +117,15 @@ export default async function PerfilPage() {
             </CardTitle>
             <CardDescription>
               Apelido usado no ranking e nas peladas do grupo ativo.
+              {requiresApproval && " Alterações precisam de aprovação do admin."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <UpdateNicknameForm
               currentNickname={nickname}
+              pendingNickname={pendingChanges.nickname}
               teamName={team?.name}
+              requiresApproval={requiresApproval}
             />
           </CardContent>
         </Card>

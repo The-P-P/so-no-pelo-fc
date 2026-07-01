@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { Clock, Loader2, Sparkles } from "lucide-react";
 import {
   updateTeamNickname,
   type ProfileActionResult,
@@ -14,12 +14,16 @@ const initialState: ProfileActionResult = {};
 
 interface UpdateNicknameFormProps {
   currentNickname?: string | null;
+  pendingNickname?: string;
   teamName?: string;
+  requiresApproval?: boolean;
 }
 
 export function UpdateNicknameForm({
   currentNickname,
+  pendingNickname,
   teamName,
+  requiresApproval = false,
 }: UpdateNicknameFormProps) {
   const [state, action, pending] = useActionState(
     updateTeamNickname,
@@ -36,6 +40,19 @@ export function UpdateNicknameForm({
 
   return (
     <form action={action} className="space-y-4">
+      {pendingNickname !== undefined && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+          <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Aguardando aprovação do admin para alterar apelido para{" "}
+            <strong>
+              {pendingNickname || "(remover apelido)"}
+            </strong>
+            .
+          </span>
+        </div>
+      )}
+
       {state.error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {state.error}
@@ -58,7 +75,7 @@ export function UpdateNicknameForm({
           <Input
             id="nickname"
             name="nickname"
-            defaultValue={currentNickname ?? ""}
+            defaultValue={pendingNickname ?? currentNickname ?? ""}
             placeholder="Zagueiro Violento"
             className="h-12 pl-10 text-base"
             maxLength={40}
@@ -73,6 +90,8 @@ export function UpdateNicknameForm({
             <Loader2 className="animate-spin" />
             Salvando...
           </>
+        ) : requiresApproval ? (
+          "Solicitar alteração"
         ) : (
           "Salvar apelido"
         )}

@@ -2,11 +2,13 @@ import { Header } from "@/components/layout/header";
 import { AddFictionalForm } from "@/components/members/add-fictional-form";
 import { FictionalPlayerRow } from "@/components/members/fictional-player-row";
 import { MemberRow } from "@/components/members/member-row";
+import { PendingNameChangesBoard } from "@/components/members/pending-name-changes-board";
 import { getDashboardContext } from "@/lib/auth";
 import {
   getTeamMembers,
   getFictionalPlayers,
 } from "@/lib/actions/member-actions";
+import { getPendingProfileChangeRequests } from "@/lib/actions/name-change-actions";
 import { getTeamPermissions } from "@/types";
 import {
   Card,
@@ -37,9 +39,12 @@ export default async function MembrosPage() {
     );
   }
 
-  const [members, fictionalPlayers] = await Promise.all([
+  const [members, fictionalPlayers, pendingNameChanges] = await Promise.all([
     getTeamMembers(team.id),
     getFictionalPlayers(team.id),
+    permissions.canManageMembers
+      ? getPendingProfileChangeRequests(team.id)
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -50,6 +55,22 @@ export default async function MembrosPage() {
       />
 
       <div className="space-y-6 p-6">
+        {permissions.canManageMembers && pendingNameChanges.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Alterações de nome pendentes ({pendingNameChanges.length})
+              </CardTitle>
+              <CardDescription>
+                Aprove ou rejeite solicitações de nome e apelido dos jogadores.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PendingNameChangesBoard requests={pendingNameChanges} />
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Elenco ({members.length})</CardTitle>

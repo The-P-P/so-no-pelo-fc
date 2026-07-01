@@ -1,8 +1,8 @@
-import type { Database, TeamRole, StatStatus } from "./database";
+import type { Database, TeamRole, StatStatus, ProfileChangeType } from "./database";
 import type { StatField } from "@/lib/stats";
 
 // Re-exporta tipos do banco
-export type { Database, TeamRole, StatStatus, StatField };
+export type { Database, TeamRole, StatStatus, ProfileChangeType, StatField };
 
 // Tipos de domínio (entidades da aplicação)
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];

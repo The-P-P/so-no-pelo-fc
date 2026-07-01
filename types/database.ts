@@ -5,6 +5,7 @@
 
 export type TeamRole = "owner" | "admin" | "player";
 export type StatStatus = "pending" | "approved" | "rejected";
+export type ProfileChangeType = "full_name" | "nickname";
 
 export interface Database {
   public: {
@@ -112,6 +113,53 @@ export interface Database {
           },
           {
             foreignKeyName: "team_members_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      profile_change_requests: {
+        Row: {
+          id: string;
+          team_id: string;
+          user_id: string;
+          change_type: ProfileChangeType;
+          requested_value: string;
+          status: StatStatus;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_id: string;
+          user_id: string;
+          change_type: ProfileChangeType;
+          requested_value: string;
+          status?: StatStatus;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          requested_value?: string;
+          status?: StatStatus;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_change_requests_team_id_fkey";
+            columns: ["team_id"];
+            referencedRelation: "teams";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "profile_change_requests_user_id_fkey";
             columns: ["user_id"];
             referencedRelation: "profiles";
             referencedColumns: ["id"];

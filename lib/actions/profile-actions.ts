@@ -1,20 +1,22 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { getDashboardContext, requireUser } from "@/lib/auth";
+import {
+  submitProfileNameChange,
+  submitTeamNicknameChange,
+} from "@/lib/actions/name-change-actions";
 
 export type ProfileActionResult = {
   error?: string;
   success?: string;
 };
 
-/** Atualiza o nome exibido no perfil */
+/** Atualiza o nome exibido no perfil (direto para admin; solicitação para jogadores) */
 export async function updateProfileName(
   _prev: ProfileActionResult,
   formData: FormData
 ): Promise<ProfileActionResult> {
-  const user = await requireUser();
+  await requireUser();
   const fullName = (formData.get("fullName") as string)?.trim();
 
   if (!fullName || fullName.length < 2) {
@@ -25,27 +27,16 @@ export async function updateProfileName(
     return { error: "Nome muito longo (máx. 60 caracteres)." };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({ full_name: fullName })
-    .eq("id", user.id);
-
-  if (error) return { error: error.message };
-
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/perfil");
-  revalidatePath("/dashboard/membros");
-  return { success: "Nome atualizado!" };
+  return submitProfileNameChange(fullName);
 }
 
-/** Atualiza apelido no grupo ativo */
+/** Atualiza apelido no grupo ativo (direto para admin; solicitação para jogadores) */
 export async function updateTeamNickname(
   _prev: ProfileActionResult,
   formData: FormData
 ): Promise<ProfileActionResult> {
-  const user = await requireUser();
-  const { team } = await getDashboardContext();
+  await requireUser();
+  const { team, profile } = await getDashboardContext();
 
   if (!team) {
     return { error: "Entre em um grupo para definir apelido." };
@@ -57,23 +48,12 @@ export async function updateTeamNickname(
     return { error: "Apelido muito longo (máx. 40 caracteres)." };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("team_members")
-    .update({ nickname: nickname || null })
-    .eq("team_id", team.id)
-    .eq("user_id", user.id);
+  const currentName = profile?.full_name?.trim();
+  if (!currentName || currentName.length < 2) {
+    return {
+      error: "Defina seu nome antes de solicitar um apelido.",
+    };
+  }
 
-  if (error) return { error: error.message };
-
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/perfil");
-  revalidatePath("/dashboard/membros");
-  revalidatePath("/dashboard/ranking");
-  revalidatePath("/dashboard/peladas");
-  return {
-    success: nickname
-      ? `Apelido "${nickname}" salvo no grupo ${team.name}!`
-      : "Apelido removido.",
-  };
+  return submitTeamNicknameChange(nickname);
 }
