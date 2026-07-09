@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Crown, Loader2, Users } from "lucide-react";
-import { awardTeamVictory } from "@/lib/actions/ranked-actions";
+import { Crown, Loader2, Undo2, Users } from "lucide-react";
+import { awardTeamVictory, revokeTeamVictory } from "@/lib/actions/ranked-actions";
 import { VICTORY_PDL } from "@/lib/ranked";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ interface TeamVictoryBoardProps {
   distribution: TeamDistribution | null;
   victoryCounts: Record<string, number>;
   onIndividualVictory?: () => void;
+  onRemoveIndividualVictory?: () => void;
 }
 
 function getInitials(name: string) {
@@ -48,16 +49,31 @@ function getTeamVictoryCount(
     .reduce((sum, player) => sum + (victoryCounts[player.participantId] ?? 0), 0);
 }
 
+function teamHasVictories(
+  teamPlayers: TeamDistribution["teams"][number],
+  victoryCounts: Record<string, number>
+) {
+  return teamPlayers.some(
+    (player) =>
+      player.participantType === "member" &&
+      (victoryCounts[player.participantId] ?? 0) > 0
+  );
+}
+
 export function TeamVictoryBoard({
   peladaId,
   distribution,
   victoryCounts,
   onIndividualVictory,
+  onRemoveIndividualVictory,
 }: TeamVictoryBoardProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [pending, startTransition] = useTransition();
   const [pendingTeamIndex, setPendingTeamIndex] = useState<number | null>(null);
+  const [pendingRevokeTeamIndex, setPendingRevokeTeamIndex] = useState<
+    number | null
+  >(null);
   const [localVictoryCounts, setLocalVictoryCounts] =
     useState(victoryCounts);
   const [celebratingTeam, setCelebratingTeam] = useState<number | null>(null);
@@ -85,6 +101,12 @@ export function TeamVictoryBoard({
             <Button variant="secondary" size="sm" onClick={onIndividualVictory}>
               <Crown className="mr-2 h-4 w-4" />
               Marcar vitória individual
+            </Button>
+          )}
+          {onRemoveIndividualVictory && (
+            <Button variant="ghost" size="sm" onClick={onRemoveIndividualVictory}>
+              <Undo2 className="mr-2 h-4 w-4" />
+              Remover vitória individual
             </Button>
           )}
         </div>
@@ -129,6 +151,35 @@ export function TeamVictoryBoard({
     });
   }
 
+  function handleRevokeTeamVictory(teamIndex: number) {
+    setPendingRevokeTeamIndex(teamIndex);
+    startTransition(async () => {
+      const result = await revokeTeamVictory(peladaId, teamIndex);
+
+      if (result.error) {
+        showToast(result.error, "error");
+        setPendingRevokeTeamIndex(null);
+        return;
+      }
+
+      if (result.revoked) {
+        setLocalVictoryCounts((current) => {
+          const next = { ...current };
+          for (const userId of result.revoked!) {
+            const value = (next[userId] ?? 0) - 1;
+            if (value <= 0) delete next[userId];
+            else next[userId] = value;
+          }
+          return next;
+        });
+      }
+
+      showToast(result.success ?? "Vitória desfeita!");
+      setPendingRevokeTeamIndex(null);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -142,6 +193,8 @@ export function TeamVictoryBoard({
           ).length;
           const isCelebrating = celebratingTeam === teamIndex;
           const isLoading = pending && pendingTeamIndex === teamIndex;
+          const isRevoking = pending && pendingRevokeTeamIndex === teamIndex;
+          const canRevoke = teamHasVictories(teamPlayers, localVictoryCounts);
           const colorClass = TEAM_COLORS[teamIndex % TEAM_COLORS.length];
 
           return (
@@ -210,6 +263,28 @@ export function TeamVictoryBoard({
                 )}
               </Button>
 
+              {canRevoke && (
+                <Button
+                  type="button"
+                  className="mt-2 h-10 w-full"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => handleRevokeTeamVictory(teamIndex)}
+                >
+                  {isRevoking ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Desfazendo...
+                    </>
+                  ) : (
+                    <>
+                      <Undo2 className="mr-2 h-4 w-4" />
+                      Desfazer vitória
+                    </>
+                  )}
+                </Button>
+              )}
+
               {memberCount > 0 && (
                 <p className="mt-2 text-center text-[11px] text-muted-foreground">
                   +{memberCount * VICTORY_PDL} PDL ({memberCount} jogador
@@ -221,16 +296,30 @@ export function TeamVictoryBoard({
         })}
       </div>
 
-      {onIndividualVictory && (
-        <div className="text-center">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onIndividualVictory}
-          >
-            Marcar vitória individual
-          </Button>
+      {(onIndividualVictory || onRemoveIndividualVictory) && (
+        <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+          {onIndividualVictory && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onIndividualVictory}
+            >
+              <Crown className="mr-2 h-4 w-4" />
+              Marcar vitória individual
+            </Button>
+          )}
+          {onRemoveIndividualVictory && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onRemoveIndividualVictory}
+            >
+              <Undo2 className="mr-2 h-4 w-4" />
+              Remover vitória individual
+            </Button>
+          )}
         </div>
       )}
     </div>

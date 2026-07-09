@@ -7,7 +7,7 @@ import {
   incrementOwnStat,
   incrementStat,
 } from "@/lib/actions/pelada-actions";
-import { incrementVictory } from "@/lib/actions/ranked-actions";
+import { decrementVictory, incrementVictory } from "@/lib/actions/ranked-actions";
 import { STAT_EMOJIS, STAT_LABELS, BOARD_EMOJIS, type StatField } from "@/lib/stats";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -19,7 +19,7 @@ import {
 import type { Participant } from "@/types";
 import { cn } from "@/lib/utils";
 
-export type PickerMode = StatField | "victory";
+export type PickerMode = StatField | "victory" | "remove_victory";
 
 interface PlayerPickerSheetProps {
   open: boolean;
@@ -45,6 +45,9 @@ function getPickerTitle(mode: PickerMode) {
   if (mode === "victory") {
     return `${BOARD_EMOJIS.victories} Quem venceu?`;
   }
+  if (mode === "remove_victory") {
+    return `${BOARD_EMOJIS.victories} Remover vitória de quem?`;
+  }
   return `${STAT_EMOJIS[mode]} ${STAT_LABELS[mode]} — quem?`;
 }
 
@@ -62,7 +65,7 @@ export function PlayerPickerSheet({
   const [pending, startTransition] = useTransition();
 
   const eligibleParticipants =
-    mode === "victory"
+    mode === "victory" || mode === "remove_victory"
       ? participants.filter((p) => p.type === "member")
       : participants;
 
@@ -72,6 +75,8 @@ export function PlayerPickerSheet({
 
       if (mode === "victory") {
         result = await incrementVictory(peladaId, participant.id);
+      } else if (mode === "remove_victory") {
+        result = await decrementVictory(peladaId, participant.id);
       } else if (isAdmin) {
         result = await incrementStat(
           peladaId,
@@ -141,7 +146,7 @@ export function PlayerPickerSheet({
 
         {eligibleParticipants.length === 0 && (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            {mode === "victory"
+            {mode === "victory" || mode === "remove_victory"
               ? "Nenhum membro presente para marcar vitória."
               : "Nenhum participante disponível."}
           </p>

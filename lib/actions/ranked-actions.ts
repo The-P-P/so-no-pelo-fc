@@ -14,6 +14,7 @@ export type RankedActionResult = {
 
 export type AwardTeamVictoryResult = RankedActionResult & {
   awarded?: string[];
+  revoked?: string[];
   count?: number;
 };
 
@@ -250,6 +251,160 @@ export async function awardTeamVictory(
     success: `Time ${teamIndex + 1} venceu! +${presentIds.length} ${label}`,
     awarded: presentIds,
     count: presentIds.length,
+  };
+}
+
+async function deleteLatestVictoryForUser(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  seasonId: string,
+  peladaId: string,
+  userId: string
+): Promise<boolean> {
+  const { data: latest } = await supabase
+    .from("pelada_victories")
+    .select("id")
+    .eq("season_id", seasonId)
+    .eq("pelada_id", peladaId)
+    .eq("user_id", userId)
+    .order("marked_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!latest) return false;
+
+  const { error } = await supabase
+    .from("pelada_victories")
+    .delete()
+    .eq("id", latest.id);
+
+  return !error;
+}
+
+/** Remove a vitória mais recente de cada membro presente do time. */
+export async function revokeTeamVictory(
+  peladaId: string,
+  teamIndex: number
+): Promise<AwardTeamVictoryResult> {
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canApproveStats) {
+    return { error: "Apenas admins podem desfazer vitórias." };
+  }
+
+  const distribution = await getTeamDistribution(peladaId);
+  if (!distribution || distribution.teams.length === 0) {
+    return { error: "Distribua os times antes de desfazer vitórias por time." };
+  }
+
+  if (teamIndex < 0 || teamIndex >= distribution.teams.length) {
+    return { error: "Time inválido." };
+  }
+
+  const memberUserIds = distribution.teams[teamIndex]
+    .filter((player) => player.participantType === "member")
+    .map((player) => player.participantId);
+
+  if (memberUserIds.length === 0) {
+    return { error: "Nenhum membro real no time." };
+  }
+
+  const supabase = await createClient();
+  const season = await ensureActiveSeason(team.id);
+
+  const { data: attendanceRows } = await supabase
+    .from("pelada_attendance")
+    .select("user_id, present")
+    .eq("pelada_id", peladaId)
+    .in("user_id", memberUserIds);
+
+  const presentIds = memberUserIds.filter((userId) => {
+    const row = attendanceRows?.find((entry) => entry.user_id === userId);
+    return row?.present;
+  });
+
+  const revoked: string[] = [];
+  for (const userId of presentIds) {
+    const removed = await deleteLatestVictoryForUser(
+      supabase,
+      season.id,
+      peladaId,
+      userId
+    );
+    if (removed) revoked.push(userId);
+  }
+
+  if (revoked.length === 0) {
+    return { error: "Nenhuma vitória do time para remover." };
+  }
+
+  revalidateRankedPaths(peladaId);
+
+  const label = revoked.length === 1 ? "vitória" : "vitórias";
+  return {
+    success: `Vitória do Time ${teamIndex + 1} desfeita (−${revoked.length} ${label})`,
+    revoked,
+    count: revoked.length,
+  };
+}
+
+/** Desfaz o último lote de vitórias registrado nesta pelada (ex.: vitória por time). */
+export async function revokeLastVictoryBatch(
+  peladaId: string
+): Promise<AwardTeamVictoryResult> {
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canApproveStats) {
+    return { error: "Apenas admins podem desfazer vitórias." };
+  }
+
+  const supabase = await createClient();
+  const season = await ensureActiveSeason(team.id);
+
+  const { data: latest } = await supabase
+    .from("pelada_victories")
+    .select("id, user_id, marked_at")
+    .eq("pelada_id", peladaId)
+    .eq("season_id", season.id)
+    .order("marked_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!latest) {
+    return { error: "Não há vitória para desfazer." };
+  }
+
+  const { data: batch } = await supabase
+    .from("pelada_victories")
+    .select("id, user_id")
+    .eq("pelada_id", peladaId)
+    .eq("season_id", season.id)
+    .eq("marked_at", latest.marked_at);
+
+  const rows = batch ?? [{ id: latest.id, user_id: latest.user_id }];
+  const ids = rows.map((row) => row.id);
+
+  const { error } = await supabase
+    .from("pelada_victories")
+    .delete()
+    .in("id", ids);
+
+  if (error) return { error: error.message };
+
+  revalidateRankedPaths(peladaId);
+
+  const revoked = rows
+    .map((row) => row.user_id)
+    .filter((userId): userId is string => Boolean(userId));
+
+  const label = ids.length === 1 ? "vitória" : "vitórias";
+  return {
+    success: `Última vitória desfeita (−${ids.length} ${label})`,
+    revoked,
+    count: ids.length,
   };
 }
 
