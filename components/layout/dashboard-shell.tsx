@@ -4,8 +4,9 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { MobileHeader } from "@/components/layout/mobile-header";
-import { BOTTOM_NAV_ITEMS } from "@/lib/navigation";
+import { BOTTOM_NAV_ITEMS, isLiveModePath } from "@/lib/navigation";
 import type { Profile, TeamRole } from "@/types";
+import { cn } from "@/lib/utils";
 
 interface DashboardShellProps {
   user: Pick<Profile, "full_name" | "email" | "phone" | "avatar_url">;
@@ -29,16 +30,26 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const pathname = usePathname();
   const pageTitle = getMobilePageTitle(pathname);
+  const isLiveMode = isLiveModePath(pathname);
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <Sidebar user={user} teamName={teamName} userRole={userRole} />
       <div className="flex min-h-0 flex-1 flex-col">
-        <MobileHeader teamName={teamName} pageTitle={pageTitle} />
-        <main className="flex-1 overflow-auto pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+        {!isLiveMode && (
+          <MobileHeader teamName={teamName} pageTitle={pageTitle} />
+        )}
+        <main
+          className={cn(
+            "flex-1 overflow-auto md:pb-0",
+            isLiveMode
+              ? "pb-0"
+              : "pb-[calc(4rem+env(safe-area-inset-bottom,0px))]"
+          )}
+        >
           {children}
         </main>
-        <BottomNav userRole={userRole} />
+        {!isLiveMode && <BottomNav userRole={userRole} />}
       </div>
     </div>
   );

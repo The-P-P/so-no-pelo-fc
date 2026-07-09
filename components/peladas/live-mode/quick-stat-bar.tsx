@@ -59,7 +59,7 @@ export function QuickStatBar({
 
   return (
     <>
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-md md:bottom-0 md:pb-4">
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-md md:bottom-0 md:pb-4">
         <div className="mx-auto grid max-w-lg grid-cols-4 gap-2">
           {PLAYER_BOARD_FIELDS.map((field) => (
             <button

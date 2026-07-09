@@ -40,7 +40,7 @@ export function LiveModeShell({
   );
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col pb-28 md:pb-24">
+    <div className="flex min-h-dvh flex-col pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-24">
       <div className="sticky top-0 z-30 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" asChild>

@@ -67,3 +67,7 @@ export function isNavItemActive(pathname: string, href: string): boolean {
   }
   return pathname.startsWith(href);
 }
+
+export function isLiveModePath(pathname: string): boolean {
+  return /\/dashboard\/peladas\/[^/]+\/ao-vivo$/.test(pathname);
+}
