@@ -36,70 +36,6 @@ import { cn } from "@/lib/utils";
 
 const initialState: RankedActionResult = {};
 
-interface RankedSeasonCardProps {
-  seasonName: string;
-  canManageTeam: boolean;
-}
-
-export function RankedSeasonCard({
-  seasonName,
-  canManageTeam,
-}: RankedSeasonCardProps) {
-  const router = useRouter();
-  const [seasonPending, startSeasonTransition] = useTransition();
-
-  function handleNewSeason() {
-    if (
-      !confirm(
-        "Iniciar nova temporada? O PDL de todos será zerado neste grupo."
-      )
-    ) {
-      return;
-    }
-
-    startSeasonTransition(async () => {
-      const result = await startNewSeason();
-      if (!result.error) router.refresh();
-    });
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Temporada ativa</CardTitle>
-        <CardDescription>
-          {seasonName} · vitória = +{VICTORY_PDL} PDL · sem penalidade por
-          derrota
-        </CardDescription>
-      </CardHeader>
-      {canManageTeam && (
-        <CardContent>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleNewSeason}
-            disabled={seasonPending}
-          >
-            {seasonPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                <CalendarPlus className="mr-2 h-4 w-4" />
-                Nova temporada
-              </>
-            )}
-          </Button>
-        </CardContent>
-      )}
-    </Card>
-  );
-}
-
-interface RankedEloLadderCardProps {
-  customTopName: string;
-  isOwner: boolean;
-}
-
 function formatEloLadderSummary(customTopName: string): string {
   const top = customTopName.trim() || "FENDA";
   const first = ELO_STEP_POINTS[0];
@@ -201,10 +137,67 @@ function RankedTopTierForm({
   );
 }
 
-export function RankedEloLadderCard({
+interface RankedSeasonActionsProps {
+  canManageTeam: boolean;
+  embedded?: boolean;
+}
+
+export function RankedSeasonActions({
+  canManageTeam,
+  embedded = true,
+}: RankedSeasonActionsProps) {
+  const router = useRouter();
+  const [seasonPending, startSeasonTransition] = useTransition();
+
+  if (!canManageTeam) return null;
+
+  function handleNewSeason() {
+    if (
+      !confirm(
+        "Iniciar nova temporada? O PDL de todos será zerado neste grupo."
+      )
+    ) {
+      return;
+    }
+
+    startSeasonTransition(async () => {
+      const result = await startNewSeason();
+      if (!result.error) router.refresh();
+    });
+  }
+
+  return (
+    <div className={cn(embedded && "border-t border-border pt-4")}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleNewSeason}
+        disabled={seasonPending}
+      >
+        {seasonPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <>
+            <CalendarPlus className="mr-2 h-4 w-4" />
+            Nova temporada
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+
+interface RankedEloLadderProps {
+  customTopName: string;
+  isOwner: boolean;
+  embedded?: boolean;
+}
+
+export function RankedEloLadder({
   customTopName,
   isOwner,
-}: RankedEloLadderCardProps) {
+  embedded = true,
+}: RankedEloLadderProps) {
   const [expanded, setExpanded] = useState(false);
   const handleTopTierSaved = useCallback(() => setExpanded(false), []);
 
@@ -218,32 +211,30 @@ export function RankedEloLadderCard({
   const summary = formatEloLadderSummary(customTopName);
 
   return (
-    <Card>
+    <div className={cn(embedded && "border-t border-border pt-4")}>
       <button
         type="button"
-        className="w-full text-left"
+        className="flex w-full items-start justify-between gap-3 text-left"
         onClick={() => setExpanded((open) => !open)}
       >
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-4">
-          <div className="min-w-0 flex-1">
-            <CardTitle className="text-base">Escada de elos</CardTitle>
-            <CardDescription className="mt-1">
-              {expanded
-                ? "Bronze precisa de 300 PDL para subir; cada elo seguinte +100"
-                : summary}
-            </CardDescription>
-          </div>
-          <span className="mt-0.5 shrink-0 text-muted-foreground">
-            {expanded ? (
-              <ChevronDown className="h-5 w-5" />
-            ) : (
-              <ChevronRight className="h-5 w-5" />
-            )}
-          </span>
-        </CardHeader>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">Escada de elos</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {expanded
+              ? "Bronze precisa de 300 PDL para subir; cada elo seguinte +100"
+              : summary}
+          </p>
+        </div>
+        <span className="mt-0.5 shrink-0 text-muted-foreground">
+          {expanded ? (
+            <ChevronDown className="h-5 w-5" />
+          ) : (
+            <ChevronRight className="h-5 w-5" />
+          )}
+        </span>
       </button>
 
-      <CardContent className={cn("space-y-4", !expanded && "hidden")}>
+      <div className={cn("space-y-4 pt-3", !expanded && "hidden")}>
         <div className="flex flex-wrap gap-2">
           {eloLadder.map((elo, index) => (
             <span
@@ -266,6 +257,63 @@ export function RankedEloLadderCard({
             onSaved={handleTopTierSaved}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+interface RankedSeasonCardProps {
+  seasonName: string;
+  canManageTeam: boolean;
+}
+
+/** @deprecated Use RankedSeasonActions inside RankingSection */
+export function RankedSeasonCard({
+  seasonName,
+  canManageTeam,
+}: RankedSeasonCardProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Temporada ativa</CardTitle>
+        <CardDescription>
+          {seasonName} · vitória = +{VICTORY_PDL} PDL · sem penalidade por
+          derrota
+        </CardDescription>
+      </CardHeader>
+      {canManageTeam && (
+        <CardContent>
+          <RankedSeasonActions canManageTeam={canManageTeam} embedded={false} />
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+interface RankedEloLadderCardProps {
+  customTopName: string;
+  isOwner: boolean;
+}
+
+/** @deprecated Use RankedEloLadder inside RankingSection */
+export function RankedEloLadderCard({
+  customTopName,
+  isOwner,
+}: RankedEloLadderCardProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Escada de elos</CardTitle>
+        <CardDescription>
+          {formatEloLadderSummary(customTopName)}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <RankedEloLadder
+          customTopName={customTopName}
+          isOwner={isOwner}
+          embedded={false}
+        />
       </CardContent>
     </Card>
   );
