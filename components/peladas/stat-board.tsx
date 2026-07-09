@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   decrementOwnStat,
@@ -72,8 +72,15 @@ function StatButton({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
 
   function handleAdjust(delta: 1 | -1) {
+    setLocalValue((current) => current + delta);
+
     startTransition(async () => {
       let result;
       if (mode === "player") {
@@ -88,8 +95,12 @@ function StatButton({
           field
         );
       }
-      if (result.error) onError(result.error);
-      else router.refresh();
+      if (result.error) {
+        setLocalValue((current) => current - delta);
+        onError(result.error);
+      } else {
+        router.refresh();
+      }
     });
   }
 
@@ -100,7 +111,7 @@ function StatButton({
         <span className="text-center text-[10px] leading-tight text-muted-foreground">
           {STAT_LABELS[field]}
         </span>
-        <span className="text-sm font-bold">{value}</span>
+        <span className="text-sm font-bold">{localValue}</span>
       </div>
       <div className="grid grid-cols-2 gap-1">
         <Button
@@ -108,7 +119,7 @@ function StatButton({
           size="sm"
           className="h-7 px-1 text-xs"
           onClick={() => handleAdjust(-1)}
-          disabled={pending || value <= 0}
+          disabled={pending || localValue <= 0}
         >
           −1
         </Button>
@@ -139,16 +150,27 @@ function VictoryButton({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [localValue, setLocalValue] = useState(value);
   const disabled = participant.type === "fictional";
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
 
   function handleAdjust(delta: 1 | -1) {
     if (disabled) return;
 
+    setLocalValue((current) => current + delta);
+
     startTransition(async () => {
       const action = delta === 1 ? incrementVictory : decrementVictory;
       const result = await action(peladaId, participant.id);
-      if (result.error) onError(result.error);
-      else router.refresh();
+      if (result.error) {
+        setLocalValue((current) => current - delta);
+        onError(result.error);
+      } else {
+        router.refresh();
+      }
     });
   }
 
@@ -159,10 +181,10 @@ function VictoryButton({
         <span className="text-center text-[10px] leading-tight text-muted-foreground">
           {BOARD_LABELS.victories}
         </span>
-        <span className="text-sm font-bold">{value}</span>
-        {value > 0 && (
+        <span className="text-sm font-bold">{localValue}</span>
+        {localValue > 0 && (
           <span className="text-[9px] text-yellow-700 dark:text-yellow-400">
-            +{value * VICTORY_PDL} PDL
+            +{localValue * VICTORY_PDL} PDL
           </span>
         )}
       </div>
@@ -172,7 +194,7 @@ function VictoryButton({
           size="sm"
           className="h-7 px-1 text-xs"
           onClick={() => handleAdjust(-1)}
-          disabled={pending || disabled || value <= 0}
+          disabled={pending || disabled || localValue <= 0}
         >
           −1
         </Button>

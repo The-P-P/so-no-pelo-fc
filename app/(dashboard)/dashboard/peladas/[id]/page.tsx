@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { notFound } from "next/navigation";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Radio } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 
@@ -164,6 +164,17 @@ export default async function PeladaDetailPage({
 
 
       <div className="space-y-6 p-6">
+
+        {(permissions.canApproveStats || isPresent) && (
+          <div className="flex justify-end">
+            <Button asChild className="gap-2">
+              <Link href={`/dashboard/peladas/${id}/ao-vivo`}>
+                <Radio className="h-4 w-4" />
+                Modo ao vivo
+              </Link>
+            </Button>
+          </div>
+        )}
 
         {permissions.canCreatePelada && <EditPeladaCard pelada={pelada} />}
 

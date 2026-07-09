@@ -26,9 +26,8 @@ export function AttendanceCard({
   currentUserId,
   canManageOthers,
 }: AttendanceCardProps) {
-  const [expanded, setExpanded] = useState(false);
-
   const confirmed = members.filter((m) => m.present).length;
+  const [expanded, setExpanded] = useState(confirmed === 0);
   const summary = `${confirmed} de ${members.length} confirmado${
     members.length !== 1 ? "s" : ""
   } pra bola`;
