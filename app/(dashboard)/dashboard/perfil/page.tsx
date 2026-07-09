@@ -6,6 +6,7 @@ import { LogoutButton } from "@/components/profile/logout-button";
 import { ChangePasswordForm } from "@/components/profile/change-password-form";
 import { ThemePicker } from "@/components/profile/theme-picker";
 import { TransferOwnershipForm, type OwnerCandidate } from "@/components/profile/transfer-ownership-form";
+import { UpdateAvatarForm } from "@/components/profile/update-avatar-form";
 import { UpdateNameForm } from "@/components/profile/update-name-form";
 import { UpdateNicknameForm } from "@/components/profile/update-nickname-form";
 import { InviteLinks } from "@/components/teams/invite-links";
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatPhoneDisplay } from "@/lib/phone";
-import { KeyRound, Palette, Sparkles, User } from "lucide-react";
+import { KeyRound, Palette, Sparkles, User, UserCircle } from "lucide-react";
 
 export const metadata = {
   title: "Perfil | Só no Pelo FC",
@@ -38,11 +39,15 @@ export default async function PerfilPage() {
       : {};
   const nicknameRequiresApproval = Boolean(team && !permissions.canManageTeam);
 
-  const contact = profile?.phone
-    ? formatPhoneDisplay(profile.phone)
-    : (profile?.email ?? "");
+  if (!profile) {
+    return null;
+  }
 
-  const initials = (profile?.full_name ?? contact)
+  const contact = profile.phone
+    ? formatPhoneDisplay(profile.phone)
+    : (profile.email ?? "");
+
+  const initials = (profile.full_name ?? contact)
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -68,14 +73,14 @@ export default async function PerfilPage() {
         <Card>
           <CardContent className="flex items-center gap-4 p-5">
             <Avatar className="h-14 w-14">
-              <AvatarImage src={profile?.avatar_url ?? undefined} />
+              <AvatarImage src={profile.avatar_url ?? undefined} />
               <AvatarFallback className="bg-primary/20 text-base text-primary">
                 {initials}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
               <p className="truncate text-lg font-semibold">
-                {profile?.full_name ?? "Jogador"}
+                {profile.full_name ?? "Jogador"}
               </p>
               {nickname && (
                 <p className="truncate text-sm text-primary">
@@ -92,6 +97,25 @@ export default async function PerfilPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
+              <UserCircle className="h-4 w-4" />
+              Foto de perfil
+            </CardTitle>
+            <CardDescription>
+              Opcional. Sua foto aparece no elenco, ranking e peladas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <UpdateAvatarForm
+              userId={profile.id}
+              currentAvatarUrl={profile.avatar_url}
+              initials={initials}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
               <User className="h-4 w-4" />
               Nome
             </CardTitle>
@@ -100,7 +124,7 @@ export default async function PerfilPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <UpdateNameForm currentName={profile?.full_name} />
+            <UpdateNameForm currentName={profile.full_name} />
           </CardContent>
         </Card>
 
