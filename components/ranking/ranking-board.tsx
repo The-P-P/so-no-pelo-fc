@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { STAT_EMOJIS } from "@/lib/stats";
+import { STAT_EMOJIS, STAT_LABELS } from "@/lib/stats";
 import type { RankingEntry } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +23,18 @@ const TABS: { id: RankingTab; label: string; emoji?: string }[] = [
   { id: "vacilos", label: "Vacilos", emoji: STAT_EMOJIS.vacilos },
   { id: "attendance", label: "Presença", emoji: "📅" },
 ];
+
+const DETAIL_STATS = [
+  "goals",
+  "assists",
+  "god_saves",
+  "vacilos",
+  "own_goals",
+] as const;
+
+function getEntryKey(entry: RankingEntry) {
+  return `${entry.participant_type}-${entry.participant_id}`;
+}
 
 function getInitials(name: string) {
   return name
@@ -78,15 +90,39 @@ function sortEntries(entries: RankingEntry[], tab: RankingTab): RankingEntry[] {
   return sorted.sort((a, b) => getValue(b, tab) - getValue(a, tab));
 }
 
+function getStatTotal(entry: RankingEntry, stat: (typeof DETAIL_STATS)[number]) {
+  switch (stat) {
+    case "goals":
+      return Number(entry.total_goals);
+    case "assists":
+      return Number(entry.total_assists);
+    case "god_saves":
+      return Number(entry.total_god_saves);
+    case "vacilos":
+      return Number(entry.total_vacilos);
+    case "own_goals":
+      return Number(entry.total_own_goals);
+  }
+}
+
 interface RankingBoardProps {
   entries: RankingEntry[];
 }
 
 export function RankingBoard({ entries }: RankingBoardProps) {
   const [tab, setTab] = useState<RankingTab>("score");
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setExpandedKey(null);
+  }, [tab]);
 
   const sorted = sortEntries(entries, tab);
   const hasData = sorted.some((e) => getValue(e, tab) !== 0);
+
+  function handleCardClick(entryKey: string) {
+    setExpandedKey((current) => (current === entryKey ? null : entryKey));
+  }
 
   if (entries.length === 0) {
     return (
@@ -120,17 +156,32 @@ export function RankingBoard({ entries }: RankingBoardProps) {
       )}
 
       <div className="space-y-2">
-          {sorted.map((entry, index) => {
-            const value = getValue(entry, tab);
-            const isTop3 = index < 3 && value > 0;
+        {sorted.map((entry, index) => {
+          const entryKey = getEntryKey(entry);
+          const value = getValue(entry, tab);
+          const isTop3 = index < 3 && value > 0;
+          const isExpanded = expandedKey === entryKey;
+          const attendancePct =
+            entry.total_peladas > 0
+              ? Math.round(
+                  (Number(entry.peladas_jogadas) / entry.total_peladas) * 100
+                )
+              : 0;
 
-            return (
-              <div
-                key={`${entry.participant_type}-${entry.participant_id}`}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg border px-4 py-3",
-                  isTop3 && "border-primary/30 bg-primary/5"
-                )}
+          return (
+            <div
+              key={entryKey}
+              className={cn(
+                "overflow-hidden rounded-lg border transition-colors",
+                isTop3 && "border-primary/30 bg-primary/5",
+                isExpanded && "border-primary/40 bg-primary/10"
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => handleCardClick(entryKey)}
+                aria-expanded={isExpanded}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left"
               >
                 <span
                   className={cn(
@@ -166,7 +217,7 @@ export function RankingBoard({ entries }: RankingBoardProps) {
                       </span>
                     )}
                   </p>
-                  {tab === "score" && (
+                  {tab === "score" && !isExpanded && (
                     <p className="text-xs text-muted-foreground">
                       {entry.total_goals}G · {entry.total_assists}A ·{" "}
                       {entry.peladas_jogadas} peladas
@@ -177,9 +228,51 @@ export function RankingBoard({ entries }: RankingBoardProps) {
                 <span className="shrink-0 text-lg font-bold tabular-nums">
                   {formatValue(entry, tab)}
                 </span>
-              </div>
-            );
-          })}
+              </button>
+
+              {isExpanded && (
+                <div className="border-t border-border/60 px-4 pb-4 pt-3">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {DETAIL_STATS.map((stat) => (
+                      <div
+                        key={stat}
+                        className="rounded-md border border-border/60 bg-background/50 px-3 py-2"
+                      >
+                        <p className="text-xs text-muted-foreground">
+                          {STAT_EMOJIS[stat]} {STAT_LABELS[stat]}
+                        </p>
+                        <p className="text-lg font-bold tabular-nums">
+                          {getStatTotal(entry, stat)}
+                        </p>
+                      </div>
+                    ))}
+                    <div className="rounded-md border border-border/60 bg-background/50 px-3 py-2">
+                      <p className="text-xs text-muted-foreground">
+                        📅 Presença
+                      </p>
+                      <p className="text-lg font-bold tabular-nums">
+                        {entry.peladas_jogadas}/{entry.total_peladas}
+                      </p>
+                      {entry.total_peladas > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {attendancePct}%
+                        </p>
+                      )}
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-background/50 px-3 py-2">
+                      <p className="text-xs text-muted-foreground">
+                        🏆 Pontuação
+                      </p>
+                      <p className="text-lg font-bold tabular-nums">
+                        {entry.score > 0 ? `+${entry.score}` : entry.score}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
