@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getDashboardContext, requireUser } from "@/lib/auth";
 import { getTeamPermissions } from "@/types";
@@ -37,28 +37,41 @@ function revalidateNameChangePaths() {
 export async function getPendingProfileChangeRequests(
   teamId: string
 ): Promise<ProfileChangeRequest[]> {
+  noStore();
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profile_change_requests")
     .select(
-      "id, team_id, user_id, change_type, requested_value, status, created_at, profile:profiles(full_name, avatar_url)"
+      "id, team_id, user_id, change_type, requested_value, status, created_at"
     )
     .eq("team_id", teamId)
     .eq("change_type", "nickname")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
-  if (!data) return [];
+  if (error || !data) return [];
 
   const userIds = data.map((r) => r.user_id);
-  const { data: memberships } = await supabase
-    .from("team_members")
-    .select("user_id, nickname")
-    .eq("team_id", teamId)
-    .in("user_id", userIds);
+  const [{ data: memberships }, { data: profiles }] = await Promise.all([
+    supabase
+      .from("team_members")
+      .select("user_id, nickname")
+      .eq("team_id", teamId)
+      .in("user_id", userIds),
+    supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", userIds),
+  ]);
 
   const nicknameByUser = new Map(
     (memberships ?? []).map((m) => [m.user_id, m.nickname])
+  );
+  const profileByUser = new Map(
+    (profiles ?? []).map((p) => [
+      p.id,
+      { full_name: p.full_name, avatar_url: p.avatar_url },
+    ])
   );
 
   return data.map((row) => ({
@@ -69,7 +82,10 @@ export async function getPendingProfileChangeRequests(
     requested_value: row.requested_value,
     status: row.status as ProfileChangeRequest["status"],
     created_at: row.created_at,
-    profile: row.profile as ProfileChangeRequest["profile"],
+    profile: profileByUser.get(row.user_id) ?? {
+      full_name: null,
+      avatar_url: null,
+    },
     current_nickname: nicknameByUser.get(row.user_id) ?? null,
   }));
 }
