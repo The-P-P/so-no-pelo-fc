@@ -3,12 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getDashboardContext, requireUser } from "@/lib/auth";
+import { getTeamDistribution } from "@/lib/actions/team-distribution-actions";
 import { getEloInfo, VICTORY_PDL } from "@/lib/ranked";
 import { getTeamPermissions } from "@/types";
 
 export type RankedActionResult = {
   error?: string;
   success?: string;
+};
+
+export type AwardTeamVictoryResult = RankedActionResult & {
+  awarded?: string[];
+  count?: number;
 };
 
 export type RankedSeason = {
@@ -173,6 +179,80 @@ export async function decrementVictory(
   return adjustVictory(peladaId, userId, -1);
 }
 
+/** Marca vitória para todos os membros presentes de um time (modo ao vivo). */
+export async function awardTeamVictory(
+  peladaId: string,
+  teamIndex: number
+): Promise<AwardTeamVictoryResult> {
+  const user = await requireUser();
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canApproveStats) {
+    return { error: "Apenas admins podem marcar vitórias." };
+  }
+
+  const distribution = await getTeamDistribution(peladaId);
+  if (!distribution || distribution.teams.length === 0) {
+    return {
+      error: "Distribua os times antes de marcar vitórias por time.",
+    };
+  }
+
+  if (teamIndex < 0 || teamIndex >= distribution.teams.length) {
+    return { error: "Time inválido." };
+  }
+
+  const memberUserIds = distribution.teams[teamIndex]
+    .filter((player) => player.participantType === "member")
+    .map((player) => player.participantId);
+
+  if (memberUserIds.length === 0) {
+    return { error: "Nenhum membro real no time para receber vitória." };
+  }
+
+  const supabase = await createClient();
+  const season = await ensureActiveSeason(team.id);
+
+  const { data: attendanceRows } = await supabase
+    .from("pelada_attendance")
+    .select("user_id, present")
+    .eq("pelada_id", peladaId)
+    .in("user_id", memberUserIds);
+
+  const presentIds = memberUserIds.filter((userId) => {
+    const row = attendanceRows?.find((entry) => entry.user_id === userId);
+    return row?.present;
+  });
+
+  if (presentIds.length === 0) {
+    return {
+      error: "Nenhum jogador presente no time para receber vitória.",
+    };
+  }
+
+  const insertRows = presentIds.map((userId) => ({
+    season_id: season.id,
+    pelada_id: peladaId,
+    user_id: userId,
+    pdl_points: VICTORY_PDL,
+    marked_by: user.id,
+  }));
+
+  const { error } = await supabase.from("pelada_victories").insert(insertRows);
+  if (error) return { error: error.message };
+
+  revalidateRankedPaths(peladaId);
+
+  const label = presentIds.length === 1 ? "vitória" : "vitórias";
+  return {
+    success: `Time ${teamIndex + 1} venceu! +${presentIds.length} ${label}`,
+    awarded: presentIds,
+    count: presentIds.length,
+  };
+}
+
 export async function getRankingPdl(teamId: string): Promise<{
   season: RankedSeason;
   entries: RankedEntry[];
@@ -295,6 +375,7 @@ export async function updateRankedTopTierName(
 
 function revalidateRankedPaths(peladaId: string) {
   revalidatePath(`/dashboard/peladas/${peladaId}`);
+  revalidatePath(`/dashboard/peladas/${peladaId}/ao-vivo`);
   revalidatePath("/dashboard/ranking");
   revalidatePath("/dashboard");
 }

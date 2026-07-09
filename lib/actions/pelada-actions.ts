@@ -224,6 +224,7 @@ function emptyBaseStats() {
 
 function revalidatePeladaPaths(peladaId: string) {
   revalidatePath(`/dashboard/peladas/${peladaId}`);
+  revalidatePath(`/dashboard/peladas/${peladaId}/ao-vivo`);
   revalidatePath("/dashboard/peladas");
   revalidatePath("/dashboard/ranking");
   revalidatePath("/dashboard");
