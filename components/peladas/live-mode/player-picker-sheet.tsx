@@ -9,6 +9,13 @@ import {
 } from "@/lib/actions/pelada-actions";
 import { incrementVictory } from "@/lib/actions/ranked-actions";
 import { STAT_EMOJIS, STAT_LABELS, BOARD_EMOJIS, type StatField } from "@/lib/stats";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import type { Participant } from "@/types";
 import { cn } from "@/lib/utils";
 
