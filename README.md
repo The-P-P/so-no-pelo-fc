@@ -1,6 +1,6 @@
 # Só no Pelo FC ⚽
 
-Site de estatísticas de pelada de várzea com humor.
+Site de estatísticas de pelada
 
 ## Stack
 
