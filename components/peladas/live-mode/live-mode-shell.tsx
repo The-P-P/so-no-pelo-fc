@@ -12,6 +12,7 @@ interface LiveModeShellProps {
   peladaTitle: string;
   peladaSubtitle: string;
   isAdmin: boolean;
+  readOnly?: boolean;
   participants: Participant[];
   teamDistribution: TeamDistribution | null;
 }
@@ -21,6 +22,7 @@ export function LiveModeShell({
   peladaTitle,
   peladaSubtitle,
   isAdmin,
+  readOnly = false,
   participants,
 }: LiveModeShellProps) {
   const { showToast } = useToast();
@@ -37,7 +39,9 @@ export function LiveModeShell({
           </Button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <Radio className="h-4 w-4 shrink-0 animate-pulse text-red-500" />
+              <Radio
+                className={`h-4 w-4 shrink-0 ${readOnly ? "text-muted-foreground" : "animate-pulse text-red-500"}`}
+              />
               <p className="truncate font-semibold">{peladaTitle}</p>
             </div>
             <p className="truncate text-xs text-muted-foreground">
@@ -49,9 +53,13 @@ export function LiveModeShell({
 
       <div className="flex-1 space-y-6 p-4">
         <section className="rounded-xl border border-border bg-muted/30 p-6 text-center">
-          <p className="font-medium">Modo ao vivo</p>
+          <p className="font-medium">
+            {readOnly ? "Pelada finalizada" : "Modo ao vivo"}
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Use os botões abaixo para registrar estatísticas durante a partida.
+            {readOnly
+              ? "As estatísticas estão travadas. Reabra a pelada para lançar de novo."
+              : "Use os botões abaixo para registrar estatísticas durante a partida."}
           </p>
         </section>
       </div>
@@ -60,6 +68,7 @@ export function LiveModeShell({
         peladaId={peladaId}
         participants={isAdmin ? participants : participants.slice(0, 1)}
         isAdmin={isAdmin}
+        readOnly={readOnly}
         onSuccess={(message) => showToast(message)}
         onError={(message) => showToast(message, "error")}
       />

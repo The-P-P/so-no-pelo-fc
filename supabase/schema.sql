@@ -12,6 +12,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TYPE team_role AS ENUM ('owner', 'admin', 'player');
 CREATE TYPE stat_status AS ENUM ('pending', 'approved', 'rejected');
+CREATE TYPE pelada_status AS ENUM ('open', 'finished');
 CREATE TYPE profile_change_type AS ENUM ('full_name', 'nickname');
 
 -- ============================================================
@@ -138,6 +139,9 @@ CREATE TABLE peladas (
   score_away INT NOT NULL DEFAULT 0,
   location TEXT,
   notes TEXT,
+  status pelada_status NOT NULL DEFAULT 'open',
+  finished_at TIMESTAMPTZ,
+  finished_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   created_by UUID NOT NULL REFERENCES profiles(id) ON DELETE RESTRICT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -145,6 +149,7 @@ CREATE TABLE peladas (
 
 CREATE INDEX idx_peladas_team ON peladas(team_id);
 CREATE INDEX idx_peladas_date ON peladas(date DESC);
+CREATE INDEX idx_peladas_team_status ON peladas(team_id, status);
 
 -- ============================================================
 -- PRESENÇA NAS PELADAS
@@ -801,7 +806,7 @@ CREATE POLICY "Admin edita stats de fictícios"
   );
 
 -- ============================================================
--- VIEWS para rankings (somente stats aprovadas)
+-- VIEWS para rankings (stats aprovadas de peladas finalizadas)
 -- ============================================================
 
 DROP VIEW IF EXISTS ranking_pelada;
@@ -823,7 +828,7 @@ SELECT
   COUNT(DISTINCT CASE WHEN pa.present THEN pa.pelada_id END)::bigint AS peladas_jogadas
 FROM team_members tm
 JOIN profiles pr ON pr.id = tm.user_id
-LEFT JOIN peladas pel ON pel.team_id = tm.team_id
+LEFT JOIN peladas pel ON pel.team_id = tm.team_id AND pel.status = 'finished'
 LEFT JOIN player_stats ps
   ON ps.pelada_id = pel.id
   AND ps.user_id = tm.user_id
@@ -849,8 +854,10 @@ SELECT
   COALESCE(SUM(ps.vacilos), 0)::bigint AS total_vacilos,
   COUNT(DISTINCT ps.pelada_id)::bigint AS peladas_jogadas
 FROM fictional_players fp
+LEFT JOIN peladas pel ON pel.team_id = fp.team_id AND pel.status = 'finished'
 LEFT JOIN player_stats ps
-  ON ps.fictional_player_id = fp.id
+  ON ps.pelada_id = pel.id
+  AND ps.fictional_player_id = fp.id
   AND ps.status = 'approved'
 GROUP BY fp.team_id, fp.id, fp.display_name, fp.nickname;
 
@@ -875,7 +882,8 @@ JOIN peladas pel ON pel.id = p.pelada_id
 LEFT JOIN profiles pr ON pr.id = p.user_id
 LEFT JOIN team_members tm ON tm.team_id = pel.team_id AND tm.user_id = p.user_id
 LEFT JOIN fictional_players fp ON fp.id = p.fictional_player_id
-WHERE p.status = 'approved';
+WHERE p.status = 'approved'
+  AND pel.status = 'finished';
 
 -- ============================================================
 -- ADMIN UPDATE MEMBER NAMES

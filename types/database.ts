@@ -5,6 +5,7 @@
 
 export type TeamRole = "owner" | "admin" | "player";
 export type StatStatus = "pending" | "approved" | "rejected";
+export type PeladaStatus = "open" | "finished";
 export type ProfileChangeType = "full_name" | "nickname";
 
 export type AssignmentSnapshot = {
@@ -247,6 +248,9 @@ export interface Database {
           score_away: number;
           location: string | null;
           notes: string | null;
+          status: PeladaStatus;
+          finished_at: string | null;
+          finished_by: string | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -260,6 +264,9 @@ export interface Database {
           score_away?: number;
           location?: string | null;
           notes?: string | null;
+          status?: PeladaStatus;
+          finished_at?: string | null;
+          finished_by?: string | null;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -271,6 +278,9 @@ export interface Database {
           score_away?: number;
           location?: string | null;
           notes?: string | null;
+          status?: PeladaStatus;
+          finished_at?: string | null;
+          finished_by?: string | null;
           updated_at?: string;
         };
         Relationships: [
@@ -591,6 +601,7 @@ export interface Database {
     Enums: {
       team_role: TeamRole;
       stat_status: StatStatus;
+      pelada_status: PeladaStatus;
     };
   };
 }

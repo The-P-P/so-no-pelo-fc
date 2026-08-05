@@ -1,8 +1,21 @@
-import type { Database, TeamRole, StatStatus, ProfileChangeType } from "./database";
+import type {
+  Database,
+  TeamRole,
+  StatStatus,
+  PeladaStatus,
+  ProfileChangeType,
+} from "./database";
 import type { StatField } from "@/lib/stats";
 
 // Re-exporta tipos do banco
-export type { Database, TeamRole, StatStatus, ProfileChangeType, StatField };
+export type {
+  Database,
+  TeamRole,
+  StatStatus,
+  PeladaStatus,
+  ProfileChangeType,
+  StatField,
+};
 
 // Tipos de domínio (entidades da aplicação)
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
@@ -111,6 +124,11 @@ export const STAT_STATUS_LABELS: Record<StatStatus, string> = {
   pending: "Aguardando aprovação",
   approved: "Aprovado",
   rejected: "Rejeitado",
+};
+
+export const PELADA_STATUS_LABELS: Record<PeladaStatus, string> = {
+  open: "Aberta",
+  finished: "Finalizada",
 };
 
 // Formulários

@@ -64,7 +64,8 @@ export async function getRankingGeral(teamId: string): Promise<RankingEntry[]> {
     supabase
       .from("peladas")
       .select("*", { count: "exact", head: true })
-      .eq("team_id", teamId),
+      .eq("team_id", teamId)
+      .eq("status", "finished"),
   ]);
 
   const w = toWeights(weights);

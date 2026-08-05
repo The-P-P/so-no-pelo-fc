@@ -103,7 +103,8 @@ async function getTeamPersonalStats(
     supabase
       .from("peladas")
       .select("*", { count: "exact", head: true })
-      .eq("team_id", teamId),
+      .eq("team_id", teamId)
+      .eq("status", "finished"),
   ]);
 
   const w = toWeights(weights);
@@ -154,7 +155,8 @@ async function getRecentPeladas(
   const { data: peladas } = await supabase
     .from("peladas")
     .select("id, date, location, team_id, team:teams(name)")
-    .in("team_id", teamIds);
+    .in("team_id", teamIds)
+    .eq("status", "finished");
 
   if (!peladas?.length) return [];
 
