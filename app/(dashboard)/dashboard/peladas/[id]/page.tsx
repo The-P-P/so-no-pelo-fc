@@ -42,7 +42,8 @@ export default async function PeladaDetailPage({
   if (!pelada || pelada.team_id !== team.id) notFound();
 
   const permissions = getTeamPermissions(role);
-  const isFinished = pelada.status === "finished";
+  const peladaStatus = pelada.status ?? "open";
+  const isFinished = peladaStatus === "finished";
   const [participants, stats, teamDistribution] = await Promise.all([
     getParticipants(team.id),
     getPeladaStats(id),
@@ -72,6 +73,14 @@ export default async function PeladaDetailPage({
       />
 
       <div className="space-y-6 p-6">
+        {(permissions.canApproveStats || permissions.isOwner) && (
+          <FinalizePeladaCard
+            peladaId={id}
+            status={peladaStatus}
+            pendingCount={pendingStats.length}
+          />
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span
             className={
@@ -80,7 +89,7 @@ export default async function PeladaDetailPage({
                 : "rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
             }
           >
-            {PELADA_STATUS_LABELS[pelada.status]}
+            {PELADA_STATUS_LABELS[peladaStatus]}
           </span>
 
           {!isFinished && (
@@ -92,14 +101,6 @@ export default async function PeladaDetailPage({
             </Button>
           )}
         </div>
-
-        {permissions.canApproveStats && (
-          <FinalizePeladaCard
-            peladaId={id}
-            status={pelada.status}
-            pendingCount={pendingStats.length}
-          />
-        )}
 
         {permissions.canCreatePelada && !isFinished && (
           <EditPeladaCard pelada={pelada} />

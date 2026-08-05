@@ -1,6 +1,10 @@
 -- ============================================================
 -- Só no Pelo FC — Schema completo com RLS
 -- Execute no SQL Editor do Supabase
+--
+-- ⚠️  BANCO NOVO / RESET: rode este arquivo UMA vez.
+-- ⚠️  BANCO JÁ EXISTENTE: NÃO rode de novo (enums/tabelas já
+--     existem). Para push, use só migrations/020_push_subscriptions.sql
 -- ============================================================
 
 -- Extensões
@@ -10,10 +14,25 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ENUMS
 -- ============================================================
 
-CREATE TYPE team_role AS ENUM ('owner', 'admin', 'player');
-CREATE TYPE stat_status AS ENUM ('pending', 'approved', 'rejected');
-CREATE TYPE pelada_status AS ENUM ('open', 'finished');
-CREATE TYPE profile_change_type AS ENUM ('full_name', 'nickname');
+DO $$ BEGIN
+  CREATE TYPE team_role AS ENUM ('owner', 'admin', 'player');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE stat_status AS ENUM ('pending', 'approved', 'rejected');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE pelada_status AS ENUM ('open', 'finished');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE profile_change_type AS ENUM ('full_name', 'nickname');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- PROFILES (espelha auth.users)
@@ -825,7 +844,7 @@ SELECT
   COALESCE(SUM(ps.god_saves), 0)::bigint AS total_god_saves,
   COALESCE(SUM(ps.own_goals), 0)::bigint AS total_own_goals,
   COALESCE(SUM(ps.vacilos), 0)::bigint AS total_vacilos,
-  COUNT(DISTINCT CASE WHEN pa.present THEN pa.pelada_id END)::bigint AS peladas_jogadas
+  COUNT(DISTINCT ps.pelada_id)::bigint AS peladas_jogadas
 FROM team_members tm
 JOIN profiles pr ON pr.id = tm.user_id
 LEFT JOIN peladas pel ON pel.team_id = tm.team_id AND pel.status = 'finished'
@@ -833,9 +852,6 @@ LEFT JOIN player_stats ps
   ON ps.pelada_id = pel.id
   AND ps.user_id = tm.user_id
   AND ps.status = 'approved'
-LEFT JOIN pelada_attendance pa
-  ON pa.pelada_id = pel.id
-  AND pa.user_id = tm.user_id
 GROUP BY tm.team_id, tm.user_id, pr.full_name, pr.avatar_url, tm.nickname
 
 UNION ALL
@@ -971,3 +987,43 @@ CREATE POLICY "Usuários podem remover próprio avatar"
     bucket_id = 'avatars'
     AND auth.uid()::text = (storage.foldername(name))[1]
   );
+
+-- Push subscriptions for Web Push notifications
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT push_subscriptions_endpoint_unique UNIQUE (endpoint)
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id
+  ON push_subscriptions (user_id);
+
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Usuários leem próprias subscriptions" ON push_subscriptions;
+CREATE POLICY "Usuários leem próprias subscriptions"
+  ON push_subscriptions FOR SELECT
+  USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Usuários criam próprias subscriptions" ON push_subscriptions;
+CREATE POLICY "Usuários criam próprias subscriptions"
+  ON push_subscriptions FOR INSERT
+  WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Usuários atualizam próprias subscriptions" ON push_subscriptions;
+CREATE POLICY "Usuários atualizam próprias subscriptions"
+  ON push_subscriptions FOR UPDATE
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Usuários removem próprias subscriptions" ON push_subscriptions;
+CREATE POLICY "Usuários removem próprias subscriptions"
+  ON push_subscriptions FOR DELETE
+  USING (user_id = auth.uid());

@@ -58,14 +58,9 @@ export async function getRankingGeral(teamId: string): Promise<RankingEntry[]> {
   noStore();
   const supabase = await createClient();
 
-  const [{ data: rows }, weights, { count: totalPeladas }] = await Promise.all([
+  const [{ data: rows }, weights] = await Promise.all([
     supabase.from("ranking_geral").select("*").eq("team_id", teamId),
     getTeamStatWeights(teamId),
-    supabase
-      .from("peladas")
-      .select("*", { count: "exact", head: true })
-      .eq("team_id", teamId)
-      .eq("status", "finished"),
   ]);
 
   const w = toWeights(weights);
@@ -102,7 +97,6 @@ export async function getRankingGeral(teamId: string): Promise<RankingEntry[]> {
         },
         w
       ),
-      total_peladas: totalPeladas ?? 0,
     };
   });
 

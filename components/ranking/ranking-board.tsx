@@ -198,8 +198,9 @@ export function RankingBoard({ entries }: RankingBoardProps) {
                   </p>
                   {tab === "score" && !isExpanded && (
                     <p className="text-xs text-muted-foreground">
-                      {entry.total_goals}G · {entry.total_assists}A ·{" "}
-                      {entry.peladas_jogadas} peladas
+                      {entry.total_goals}G · {entry.total_assists}A
+                      {Number(entry.total_god_saves) > 0 &&
+                        ` · ${entry.total_god_saves} defesas`}
                     </p>
                   )}
                 </div>

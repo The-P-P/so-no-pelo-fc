@@ -7,6 +7,7 @@ import { getDashboardContext, requireUser } from "@/lib/auth";
 import { getTeamPermissions } from "@/types";
 import type { StatField } from "@/lib/stats";
 import type { Pelada, PlayerStat, Participant } from "@/types";
+import { notifyTeamMembers, notifyUsers } from "@/lib/push";
 
 export type PeladaActionResult = {
   error?: string;
@@ -162,6 +163,18 @@ export async function createPelada(
     .single();
 
   if (error) return { error: error.message };
+
+  notifyTeamMembers(
+    team.id,
+    {
+      title: "Nova pelada!",
+      body: location
+        ? `${date} · ${location}`
+        : `Marcada para ${date}. Bora?`,
+      url: `/dashboard/peladas/${data.id}`,
+    },
+    { excludeUserIds: [user.id] }
+  );
 
   revalidatePath("/dashboard/peladas");
   redirect(`/dashboard/peladas/${data.id}`);
@@ -479,6 +492,14 @@ export async function approvePlayerStat(
 
   if (error) return { error: error.message };
 
+  if (stat.user_id) {
+    notifyUsers([stat.user_id], {
+      title: "Stats aprovadas!",
+      body: "Suas estatísticas da pelada foram aprovadas.",
+      url: `/dashboard/peladas/${stat.pelada_id}`,
+    });
+  }
+
   revalidatePeladaPaths(stat.pelada_id);
   return { success: "Estatísticas aprovadas!" };
 }
@@ -520,6 +541,14 @@ export async function rejectPlayerStat(
     .eq("id", statId);
 
   if (error) return { error: error.message };
+
+  if (stat.user_id) {
+    notifyUsers([stat.user_id], {
+      title: "Stats rejeitadas",
+      body: "Seu envio foi rejeitado. Você pode lançar de novo.",
+      url: `/dashboard/peladas/${stat.pelada_id}`,
+    });
+  }
 
   revalidatePeladaPaths(stat.pelada_id);
   return { success: "Envio rejeitado. O jogador pode lançar de novo." };
