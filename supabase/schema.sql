@@ -913,6 +913,7 @@ CREATE POLICY "Usuários podem remover próprio avatar"
     bucket_id = 'avatars'
     AND auth.uid()::text = (storage.foldername(name))[1]
   );
+
 -- Push subscriptions for Web Push notifications
 
 CREATE TABLE IF NOT EXISTS push_subscriptions (
