@@ -66,10 +66,12 @@ export function FinalizePeladaCard({
   }
 
   return (
-    <Card className={isFinished ? "border-primary/30" : undefined}>
+    <Card className={isFinished ? "border-primary/30 bg-primary/5" : "border-amber-500/40 bg-amber-500/5"}>
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
-          <CardTitle className="text-base">Status da pelada</CardTitle>
+          <CardTitle className="text-base">
+            {isFinished ? "Pelada no ranking" : "Finalizar pelada"}
+          </CardTitle>
           <span
             className={
               isFinished
@@ -83,7 +85,7 @@ export function FinalizePeladaCard({
         <CardDescription>
           {isFinished
             ? "Stats travadas e já contam no ranking. Reabra para corrigir."
-            : "Quando terminar de lançar tudo, finalize para as stats entrarem no ranking."}
+            : "As stats só entram no ranking depois de finalizar. Lance tudo e clique no botão abaixo."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -124,16 +126,17 @@ export function FinalizePeladaCard({
         ) : (
           <Button
             type="button"
-            className="w-full gap-2"
+            size="lg"
+            className="h-12 w-full gap-2 text-base font-semibold"
             disabled={pending || !canFinalize}
             onClick={handleFinalize}
           >
             {pending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <CheckCircle2 className="h-4 w-4" />
+              <CheckCircle2 className="h-5 w-5" />
             )}
-            Finalizar pelada
+            Finalizar e enviar ao ranking
           </Button>
         )}
       </CardContent>
