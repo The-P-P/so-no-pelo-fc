@@ -1,6 +1,10 @@
 -- ============================================================
 -- Só no Pelo FC — Schema completo com RLS
 -- Execute no SQL Editor do Supabase
+--
+-- ⚠️  BANCO NOVO / RESET: rode este arquivo UMA vez.
+-- ⚠️  BANCO JÁ EXISTENTE: NÃO rode de novo (enums/tabelas já
+--     existem). Para push, use só migrations/020_push_subscriptions.sql
 -- ============================================================
 
 -- Extensões
@@ -10,9 +14,20 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ENUMS
 -- ============================================================
 
-CREATE TYPE team_role AS ENUM ('owner', 'admin', 'player');
-CREATE TYPE stat_status AS ENUM ('pending', 'approved', 'rejected');
-CREATE TYPE profile_change_type AS ENUM ('full_name', 'nickname');
+DO $$ BEGIN
+  CREATE TYPE team_role AS ENUM ('owner', 'admin', 'player');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE stat_status AS ENUM ('pending', 'approved', 'rejected');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE profile_change_type AS ENUM ('full_name', 'nickname');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- PROFILES (espelha auth.users)

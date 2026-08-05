@@ -24,7 +24,9 @@ npm install
 
 1. Crie um projeto em [supabase.com](https://supabase.com)
 2. Copie `.env.local.example` para `.env.local` e preencha as variáveis
-3. No SQL Editor, execute o arquivo `supabase/schema.sql` (e migrations se necessário)
+3. No SQL Editor:
+   - **Banco novo / após reset:** execute `supabase/schema.sql` **uma vez**
+   - **Banco já existente:** **não** rode o `schema.sql` de novo (vai falhar com `type already exists`). Para notificações push, rode só `supabase/migrations/020_push_subscriptions.sql`
 4. Em **Authentication → Providers**, habilite **Email** (já vem ativo)
 5. Em **Authentication → Providers**, desabilite **Phone** (evita SMS pago via Twilio)
 6. Em **Authentication → URL Configuration**, defina **Site URL** como `http://localhost:3000` (dev) ou sua URL da Vercel (prod)
