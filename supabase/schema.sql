@@ -980,19 +980,23 @@ CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id
 
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Usuários leem próprias subscriptions" ON push_subscriptions;
 CREATE POLICY "Usuários leem próprias subscriptions"
   ON push_subscriptions FOR SELECT
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Usuários criam próprias subscriptions" ON push_subscriptions;
 CREATE POLICY "Usuários criam próprias subscriptions"
   ON push_subscriptions FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Usuários atualizam próprias subscriptions" ON push_subscriptions;
 CREATE POLICY "Usuários atualizam próprias subscriptions"
   ON push_subscriptions FOR UPDATE
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Usuários removem próprias subscriptions" ON push_subscriptions;
 CREATE POLICY "Usuários removem próprias subscriptions"
   ON push_subscriptions FOR DELETE
   USING (user_id = auth.uid());
