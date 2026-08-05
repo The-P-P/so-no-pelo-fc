@@ -820,7 +820,7 @@ SELECT
   COALESCE(SUM(ps.god_saves), 0)::bigint AS total_god_saves,
   COALESCE(SUM(ps.own_goals), 0)::bigint AS total_own_goals,
   COALESCE(SUM(ps.vacilos), 0)::bigint AS total_vacilos,
-  COUNT(DISTINCT CASE WHEN pa.present THEN pa.pelada_id END)::bigint AS peladas_jogadas
+  COUNT(DISTINCT ps.pelada_id)::bigint AS peladas_jogadas
 FROM team_members tm
 JOIN profiles pr ON pr.id = tm.user_id
 LEFT JOIN peladas pel ON pel.team_id = tm.team_id
@@ -828,9 +828,6 @@ LEFT JOIN player_stats ps
   ON ps.pelada_id = pel.id
   AND ps.user_id = tm.user_id
   AND ps.status = 'approved'
-LEFT JOIN pelada_attendance pa
-  ON pa.pelada_id = pel.id
-  AND pa.user_id = tm.user_id
 GROUP BY tm.team_id, tm.user_id, pr.full_name, pr.avatar_url, tm.nickname
 
 UNION ALL
