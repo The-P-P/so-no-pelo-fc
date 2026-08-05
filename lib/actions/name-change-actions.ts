@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getDashboardContext, requireUser } from "@/lib/auth";
 import { getTeamPermissions } from "@/types";
 import type { ProfileChangeType } from "@/types/database";
+import { notifyTeamMembers, notifyUsers } from "@/lib/push";
 
 export type NameChangeActionResult = {
   error?: string;
@@ -145,6 +146,22 @@ async function upsertChangeRequest(
   }
 
   revalidateNameChangePaths();
+
+  if (changeType === "nickname") {
+    notifyTeamMembers(
+      teamId,
+      {
+        title: "Pedido de apelido",
+        body: `Alguém pediu o apelido "${requestedValue}".`,
+        url: "/dashboard/membros",
+      },
+      {
+        excludeUserIds: [userId],
+        roles: ["owner", "admin"],
+      }
+    );
+  }
+
   return {
     success: "Solicitação de apelido enviada! Aguardando aprovação do admin.",
   };
@@ -266,6 +283,15 @@ export async function approveProfileChangeRequest(
 
   if (error) return { error: error.message };
 
+  notifyUsers([request.user_id], {
+    title: "Apelido aprovado!",
+    body:
+      request.change_type === "nickname"
+        ? `Seu apelido "${request.requested_value}" foi aprovado.`
+        : "Sua alteração de nome foi aprovada.",
+    url: "/dashboard/perfil",
+  });
+
   revalidateNameChangePaths();
   return { success: "Alteração aprovada!" };
 }
@@ -283,6 +309,16 @@ export async function rejectProfileChangeRequest(
   }
 
   const supabase = await createClient();
+  const { data: request } = await supabase
+    .from("profile_change_requests")
+    .select("id, user_id, change_type, requested_value")
+    .eq("id", requestId)
+    .eq("team_id", team.id)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  if (!request) return { error: "Solicitação não encontrada." };
+
   const { error } = await supabase
     .from("profile_change_requests")
     .update({
@@ -295,6 +331,15 @@ export async function rejectProfileChangeRequest(
     .eq("status", "pending");
 
   if (error) return { error: error.message };
+
+  notifyUsers([request.user_id], {
+    title: "Apelido rejeitado",
+    body:
+      request.change_type === "nickname"
+        ? `O apelido "${request.requested_value}" não foi aprovado.`
+        : "Sua alteração de nome foi rejeitada.",
+    url: "/dashboard/perfil",
+  });
 
   revalidateNameChangePaths();
   return { success: "Solicitação rejeitada." };

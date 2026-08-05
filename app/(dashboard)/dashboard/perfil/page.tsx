@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatPhoneDisplay } from "@/lib/phone";
-import { KeyRound, Palette, Sparkles, User, UserCircle } from "lucide-react";
+import { KeyRound, Palette, Sparkles, User, UserCircle, Bell } from "lucide-react";
+import { NotificationSettings } from "@/components/pwa/notification-settings";
 
 export const metadata = {
   title: "Perfil | Só no Pelo FC",
@@ -162,6 +163,21 @@ export default async function PerfilPage() {
           </CardHeader>
           <CardContent>
             <ChangePasswordForm />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bell className="h-4 w-4" />
+              Notificações
+            </CardTitle>
+            <CardDescription>
+              Receba avisos de peladas, aprovação de stats e apelidos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <NotificationSettings />
           </CardContent>
         </Card>
 

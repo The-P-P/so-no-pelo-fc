@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { MobileHeader } from "@/components/layout/mobile-header";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { BOTTOM_NAV_ITEMS, isLiveModePath } from "@/lib/navigation";
 import type { Profile, TeamRole } from "@/types";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ export function DashboardShell({
           {children}
         </main>
         {!isLiveMode && <BottomNav userRole={userRole} />}
+        {!isLiveMode && <InstallPrompt />}
       </div>
     </div>
   );
