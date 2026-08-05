@@ -1,16 +1,21 @@
 -- ============================================================
 -- Status de finalização das peladas
 -- Ranking só conta stats aprovadas de peladas finalizadas
+-- Idempotente: seguro reexecutar se parcial
 -- ============================================================
 
-CREATE TYPE pelada_status AS ENUM ('open', 'finished');
+DO $$ BEGIN
+  CREATE TYPE pelada_status AS ENUM ('open', 'finished');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 ALTER TABLE peladas
-  ADD COLUMN status pelada_status NOT NULL DEFAULT 'open',
-  ADD COLUMN finished_at TIMESTAMPTZ,
-  ADD COLUMN finished_by UUID REFERENCES profiles(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS status pelada_status NOT NULL DEFAULT 'open',
+  ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS finished_by UUID REFERENCES profiles(id) ON DELETE SET NULL;
 
-CREATE INDEX idx_peladas_team_status ON peladas(team_id, status);
+CREATE INDEX IF NOT EXISTS idx_peladas_team_status ON peladas(team_id, status);
 
 -- Ranking geral: somente stats aprovadas de peladas finalizadas
 DROP VIEW IF EXISTS ranking_pelada;
