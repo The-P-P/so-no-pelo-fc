@@ -228,15 +228,14 @@ export function TeamDistributionBoard({
 
       {distribution.presentCount < 2 && (
         <p className="text-sm text-muted-foreground">
-          Confirme a presença de pelo menos 2 jogadores para formar times.
+          É necessário pelo menos 2 jogadores no grupo para formar times.
         </p>
       )}
 
       {distribution.unassignedPlayers.length > 0 && (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
           {distribution.unassignedPlayers.length} jogador
-          {distribution.unassignedPlayers.length !== 1 ? "es" : ""} confirmado
-          {distribution.unassignedPlayers.length !== 1 ? "s" : ""} sem time —
+          {distribution.unassignedPlayers.length !== 1 ? "es" : ""} sem time —
           {canManage ? " redistribua para incluí-los." : " aguarde o admin."}
         </div>
       )}
@@ -245,7 +244,7 @@ export function TeamDistributionBoard({
         <div className="flex items-center gap-2 rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
           <Users className="h-5 w-5 shrink-0" />
           <span>
-            {distribution.presentCount} jogadores confirmados —{" "}
+            {distribution.presentCount} jogadores no grupo —{" "}
             {canManage
               ? "clique em Distribuir para equilibrar os times pelo score médio."
               : "o admin ainda não formou os times."}

@@ -32,7 +32,7 @@ export function TeamDistributionCard({
   const summary =
     teamCount > 0
       ? `${teamCount} time${teamCount !== 1 ? "s" : ""} · ${distribution.presentCount} jogador${distribution.presentCount !== 1 ? "es" : ""}`
-      : `${distribution.presentCount} jogador${distribution.presentCount !== 1 ? "es" : ""} confirmado${distribution.presentCount !== 1 ? "s" : ""}`;
+      : `${distribution.presentCount} jogador${distribution.presentCount !== 1 ? "es" : ""} no grupo`;
 
   return (
     <Card>

@@ -8,8 +8,6 @@ import {
   type StatWeightKey,
 } from "@/lib/stats";
 import { getRankingGeral, getTeamStatWeights } from "@/lib/actions/ranking-actions";
-import { getRankingPdl } from "@/lib/actions/ranked-actions";
-import { getEloInfo } from "@/lib/ranked";
 import type { TeamStatWeights } from "@/types";
 
 export type PersonalStatTotals = {
@@ -45,24 +43,11 @@ export type PersonalPeladaEntry = {
   score: number;
 };
 
-export type TeamRankedSummary = {
-  team_id: string;
-  team_name: string;
-  season_name: string;
-  total_pdl: number;
-  victories: number;
-  eloName: string;
-  nextEloName: string | null;
-  pdlNeededForNext: number | null;
-  progressPercent: number;
-};
-
 export type PersonalStatsBundle = {
   teams: { id: string; name: string }[];
   byTeam: TeamPersonalStats[];
   aggregate: PersonalStatTotals;
   recentPeladas: PersonalPeladaEntry[];
-  rankedByTeam: TeamRankedSummary[];
 };
 
 function toWeights(weights: TeamStatWeights): Record<StatWeightKey, number> {
@@ -260,7 +245,6 @@ export async function getPersonalStatsBundle(): Promise<PersonalStatsBundle | nu
       byTeam: [],
       aggregate: emptyTotals(),
       recentPeladas: [],
-      rankedByTeam: [],
     };
   }
 
@@ -276,35 +260,12 @@ export async function getPersonalStatsBundle(): Promise<PersonalStatsBundle | nu
   );
 
   const teamIds = memberships.map((m) => m.team.id);
-  const [recentPeladas, rankedByTeam] = await Promise.all([
-    getRecentPeladas(user.id, teamIds),
-    Promise.all(
-      memberships.map(async (m) => {
-        const ranked = await getRankingPdl(m.team.id);
-        const me = ranked.entries.find((e) => e.user_id === user.id);
-        const totalPdl = me?.total_pdl ?? 0;
-        const elo = getEloInfo(totalPdl, ranked.customTopName);
-
-        return {
-          team_id: m.team.id,
-          team_name: m.team.name,
-          season_name: ranked.season.name,
-          total_pdl: totalPdl,
-          victories: me?.victories ?? 0,
-          eloName: elo.eloName,
-          nextEloName: elo.nextEloName,
-          pdlNeededForNext: elo.pdlNeededForNext,
-          progressPercent: elo.progressPercent,
-        };
-      })
-    ),
-  ]);
+  const recentPeladas = await getRecentPeladas(user.id, teamIds);
 
   return {
     teams: memberships.map((m) => ({ id: m.team.id, name: m.team.name })),
     byTeam,
     aggregate: sumTotals(byTeam),
     recentPeladas,
-    rankedByTeam,
   };
 }

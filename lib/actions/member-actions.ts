@@ -112,6 +112,93 @@ export async function removeFictionalPlayer(
   return { success: "Jogador fictício removido." };
 }
 
+export async function updateMemberNames(
+  memberUserId: string,
+  fullName: string,
+  nickname: string
+): Promise<MemberActionResult> {
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canManageMembers) {
+    return { error: "Apenas admins podem editar nomes dos jogadores." };
+  }
+
+  const trimmedName = fullName.trim();
+  const trimmedNickname = nickname.trim();
+
+  if (!trimmedName || trimmedName.length < 2) {
+    return { error: "Nome real precisa ter pelo menos 2 caracteres." };
+  }
+  if (trimmedName.length > 60) {
+    return { error: "Nome real pode ter no máximo 60 caracteres." };
+  }
+  if (trimmedNickname.length > 40) {
+    return { error: "Apelido pode ter no máximo 40 caracteres." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_update_member_names", {
+    p_team_id: team.id,
+    p_member_user_id: memberUserId,
+    p_full_name: trimmedName,
+    p_nickname: trimmedNickname || null,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidateMemberPaths();
+  return { success: "Nome atualizado." };
+}
+
+export async function updateFictionalPlayer(
+  playerId: string,
+  displayName: string,
+  nickname: string
+): Promise<MemberActionResult> {
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canManageMembers) {
+    return { error: "Apenas admins podem editar jogadores fictícios." };
+  }
+
+  const trimmedName = displayName.trim();
+  const trimmedNickname = nickname.trim();
+
+  if (!trimmedName || trimmedName.length < 2) {
+    return { error: "Nome precisa ter pelo menos 2 caracteres." };
+  }
+  if (trimmedName.length > 60) {
+    return { error: "Nome pode ter no máximo 60 caracteres." };
+  }
+  if (trimmedNickname.length > 40) {
+    return { error: "Apelido pode ter no máximo 40 caracteres." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("fictional_players")
+    .update({
+      display_name: trimmedName,
+      nickname: trimmedNickname || null,
+    })
+    .eq("id", playerId)
+    .eq("team_id", team.id);
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "Já existe um jogador fictício com esse nome." };
+    }
+    return { error: error.message };
+  }
+
+  revalidateMemberPaths();
+  return { success: "Jogador fictício atualizado." };
+}
+
 export async function promoteMember(
   memberUserId: string
 ): Promise<MemberActionResult> {

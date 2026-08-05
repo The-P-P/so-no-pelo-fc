@@ -6,13 +6,12 @@ export type StatField =
   | "vacilos"
   | "own_goals";
 
-/** Colunas do painel de stats na pelada (vitórias vêm de pelada_victories) */
+/** Colunas do painel de stats na pelada */
 export type BoardField =
   | "goals"
   | "assists"
   | "god_saves"
-  | "vacilos"
-  | "victories";
+  | "vacilos";
 
 export type StatWeightKey = StatField;
 
@@ -24,7 +23,7 @@ export const STAT_FIELDS: StatField[] = [
   "own_goals",
 ];
 
-/** Stats que o jogador pode lançar sozinho (sem gol contra nem vitórias) */
+/** Stats que o jogador pode lançar sozinho (sem gol contra) */
 export const PLAYER_BOARD_FIELDS: StatField[] = [
   "goals",
   "assists",
@@ -32,13 +31,12 @@ export const PLAYER_BOARD_FIELDS: StatField[] = [
   "vacilos",
 ];
 
-/** Painel admin: vitórias no lugar de gol contra */
+/** Painel admin */
 export const ADMIN_BOARD_FIELDS: BoardField[] = [
   "goals",
   "assists",
   "god_saves",
   "vacilos",
-  "victories",
 ];
 
 export const STAT_LABELS: Record<StatField, string> = {
@@ -54,7 +52,6 @@ export const BOARD_LABELS: Record<BoardField, string> = {
   assists: "Assistência",
   god_saves: "God Save",
   vacilos: "Deu o cu",
-  victories: "Vitória",
 };
 
 export const STAT_EMOJIS: Record<StatField, string> = {
@@ -70,7 +67,6 @@ export const BOARD_EMOJIS: Record<BoardField, string> = {
   assists: "🎯",
   god_saves: "🧤",
   vacilos: "💀",
-  victories: "👑",
 };
 
 export const WEIGHT_LABELS: Record<StatWeightKey, string> = {

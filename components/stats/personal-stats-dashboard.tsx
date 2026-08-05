@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,13 +13,11 @@ import {
 import { STAT_EMOJIS } from "@/lib/stats";
 import { formatPeladaDate } from "@/lib/peladas";
 import { cn } from "@/lib/utils";
-import { getEloColor } from "@/lib/ranked";
 import type {
   PersonalPeladaEntry,
   PersonalStatTotals,
   PersonalStatsBundle,
   TeamPersonalStats,
-  TeamRankedSummary,
 } from "@/lib/actions/personal-stats-actions";
 
 type FilterId = "all" | string;
@@ -114,14 +111,6 @@ function filterPeladas(
   return peladas.filter((p) => p.team_id === filter);
 }
 
-function getActiveRanked(
-  filter: FilterId,
-  bundle: PersonalStatsBundle
-): TeamRankedSummary | null {
-  if (filter === "all") return null;
-  return bundle.rankedByTeam.find((r) => r.team_id === filter) ?? null;
-}
-
 interface PersonalStatsDashboardProps {
   bundle: PersonalStatsBundle;
 }
@@ -139,20 +128,10 @@ export function PersonalStatsDashboard({ bundle }: PersonalStatsDashboardProps) 
     [filter, bundle.recentPeladas]
   );
 
-  const ranked = useMemo(
-    () => getActiveRanked(filter, bundle),
-    [filter, bundle]
-  );
-
   const rankingDisplay = useMemo(
     () => getRankingDisplay(filter, bundle, stats),
     [filter, bundle, stats]
   );
-
-  const attendancePct =
-    stats.total_peladas > 0
-      ? Math.round((stats.peladas_jogadas / stats.total_peladas) * 100)
-      : 0;
 
   const hasAnyStats =
     stats.goals > 0 ||
@@ -185,66 +164,6 @@ export function PersonalStatsDashboard({ bundle }: PersonalStatsDashboardProps) 
         ))}
       </div>
 
-      {ranked && (
-        <Card className="overflow-hidden border-yellow-500/40 bg-gradient-to-br from-yellow-500/20 via-yellow-500/5 to-transparent shadow-sm">
-          <CardContent className="p-5 sm:p-6">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
-                  <Crown className="h-4 w-4 shrink-0" />
-                  <p className="text-xs font-semibold uppercase tracking-wider">
-                    Seu elo · {ranked.team_name}
-                  </p>
-                </div>
-                <p
-                  className={cn(
-                    "text-4xl font-black tracking-tight sm:text-5xl",
-                    getEloColor(ranked.eloName)
-                  )}
-                >
-                  {ranked.eloName}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {ranked.season_name} · {ranked.total_pdl} PDL ·{" "}
-                  {ranked.victories} vitória
-                  {ranked.victories !== 1 ? "s" : ""}
-                </p>
-              </div>
-
-              {ranked.nextEloName && ranked.pdlNeededForNext !== null ? (
-                <div className="w-full sm:max-w-xs">
-                  <p className="mb-2 text-xs text-muted-foreground">
-                    Faltam{" "}
-                    <span className="font-semibold text-foreground">
-                      {ranked.pdlNeededForNext} PDL
-                    </span>{" "}
-                    para{" "}
-                    <span
-                      className={cn("font-semibold", getEloColor(ranked.nextEloName))}
-                    >
-                      {ranked.nextEloName}
-                    </span>
-                  </p>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-yellow-500 transition-all"
-                      style={{ width: `${ranked.progressPercent}%` }}
-                    />
-                  </div>
-                  <p className="mt-1 text-right text-[10px] tabular-nums text-muted-foreground">
-                    {ranked.progressPercent}%
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
-                  Elo máximo alcançado
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-primary/30 bg-primary/5 sm:col-span-2 lg:col-span-1">
           <CardHeader className="pb-2">
@@ -266,19 +185,14 @@ export function PersonalStatsDashboard({ bundle }: PersonalStatsDashboardProps) 
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Presença</CardTitle>
+            <CardTitle className="text-sm font-medium">Peladas</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold tabular-nums">
               {stats.peladas_jogadas}
-              <span className="text-lg text-muted-foreground">
-                /{stats.total_peladas}
-              </span>
             </p>
             <p className="text-xs text-muted-foreground">
-              {stats.total_peladas > 0
-                ? `${attendancePct}% das peladas`
-                : "Nenhuma pelada no período"}
+              Com estatísticas aprovadas
             </p>
           </CardContent>
         </Card>
@@ -357,8 +271,7 @@ export function PersonalStatsDashboard({ bundle }: PersonalStatsDashboardProps) 
         <CardContent>
           {!hasAnyStats && peladas.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nenhuma estatística aprovada ainda. Confirma presença nas peladas e
-              pede pro admin lançar as stats!
+              Nenhuma estatística aprovada ainda. Lance as stats nas peladas!
             </p>
           ) : peladas.length === 0 ? (
             <p className="text-sm text-muted-foreground">

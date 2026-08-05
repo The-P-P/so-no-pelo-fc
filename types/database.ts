@@ -570,6 +570,15 @@ export interface Database {
         Args: { p_team_id: string };
         Returns: undefined;
       };
+      admin_update_member_names: {
+        Args: {
+          p_team_id: string;
+          p_member_user_id: string;
+          p_full_name: string;
+          p_nickname: string | null;
+        };
+        Returns: undefined;
+      };
       get_team_by_invite_token: {
         Args: { p_token: string };
         Returns: {

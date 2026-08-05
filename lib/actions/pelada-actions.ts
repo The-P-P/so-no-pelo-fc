@@ -254,19 +254,6 @@ async function adjustStatAsAdmin(
   const isMember = participantType === "member";
   const filterCol = isMember ? "user_id" : "fictional_player_id";
 
-  if (delta === 1 && isMember) {
-    const { data: attendance } = await supabase
-      .from("pelada_attendance")
-      .select("present")
-      .eq("pelada_id", peladaId)
-      .eq("user_id", participantId)
-      .maybeSingle();
-
-    if (!attendance?.present) {
-      return { error: "Jogador precisa confirmar presença antes das stats." };
-    }
-  }
-
   const { data: existing } = await supabase
     .from("player_stats")
     .select("*")
@@ -330,17 +317,6 @@ async function adjustStatAsPlayer(
   const pelada = await getPeladaById(peladaId);
   if (!pelada || pelada.team_id !== team.id) {
     return { error: "Pelada não encontrada." };
-  }
-
-  const { data: attendance } = await supabase
-    .from("pelada_attendance")
-    .select("present")
-    .eq("pelada_id", peladaId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!attendance?.present) {
-    return { error: "Confirme sua presença antes de lançar stats." };
   }
 
   const { data: existing } = await supabase
