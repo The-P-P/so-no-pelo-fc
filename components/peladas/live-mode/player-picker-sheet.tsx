@@ -1,12 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import {
-  incrementOwnStat,
-  incrementStat,
-} from "@/lib/actions/pelada-actions";
+import { incrementOwnStat, incrementStat } from "@/lib/actions/pelada-actions";
 import { STAT_EMOJIS, STAT_LABELS, type StatField } from "@/lib/stats";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -50,32 +44,21 @@ export function PlayerPickerSheet({
   onSuccess,
   onError,
 }: PlayerPickerSheetProps) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-
   function handleSelect(participant: Participant) {
-    startTransition(async () => {
-      let result: { error?: string; success?: string };
+    const displayName = participant.displayName ?? "Jogador";
+    onOpenChange(false);
+    onSuccess?.(
+      `${STAT_EMOJIS[mode]} ${STAT_LABELS[mode]} · ${displayName}`
+    );
 
-      if (isAdmin) {
-        result = await incrementStat(
-          peladaId,
-          participant.id,
-          participant.type,
-          mode
-        );
-      } else {
-        result = await incrementOwnStat(peladaId, mode);
-      }
+    const action = isAdmin
+      ? incrementStat(peladaId, participant.id, participant.type, mode)
+      : incrementOwnStat(peladaId, mode);
 
+    void action.then((result) => {
       if (result.error) {
         onError?.(result.error);
-        return;
       }
-
-      onSuccess?.(result.success ?? "Registrado!");
-      onOpenChange(false);
-      router.refresh();
     });
   }
 
@@ -88,13 +71,6 @@ export function PlayerPickerSheet({
           </SheetTitle>
         </SheetHeader>
 
-        {pending && (
-          <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Salvando...
-          </div>
-        )}
-
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
           {participants.map((participant) => {
             const displayName = participant.displayName ?? "Jogador";
@@ -103,12 +79,10 @@ export function PlayerPickerSheet({
               <button
                 key={`${participant.type}-${participant.id}`}
                 type="button"
-                disabled={pending}
                 onClick={() => handleSelect(participant)}
                 className={cn(
                   "flex flex-col items-center gap-2 rounded-xl border border-border p-3 transition-colors",
-                  "hover:border-primary/50 hover:bg-primary/5 active:scale-95",
-                  "disabled:pointer-events-none disabled:opacity-50"
+                  "hover:border-primary/50 hover:bg-primary/5 active:scale-95"
                 )}
               >
                 <Avatar className="h-12 w-12">

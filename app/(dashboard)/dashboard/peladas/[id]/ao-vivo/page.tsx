@@ -33,6 +33,7 @@ export default async function LiveModePage({ params }: LiveModePageProps) {
       peladaTitle={getPeladaTitle(pelada)}
       peladaSubtitle={getPeladaSubtitle(pelada)}
       isAdmin={isAdmin}
+      readOnly={pelada.status === "finished"}
       participants={
         isAdmin
           ? participants

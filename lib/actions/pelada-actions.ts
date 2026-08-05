@@ -264,6 +264,12 @@ async function adjustStatAsAdmin(
     return { error: "Pelada não encontrada." };
   }
 
+  if (pelada.status === "finished") {
+    return {
+      error: "Pelada finalizada. Reabra para lançar ou corrigir estatísticas.",
+    };
+  }
+
   const isMember = participantType === "member";
   const filterCol = isMember ? "user_id" : "fictional_player_id";
 
@@ -330,6 +336,12 @@ async function adjustStatAsPlayer(
   const pelada = await getPeladaById(peladaId);
   if (!pelada || pelada.team_id !== team.id) {
     return { error: "Pelada não encontrada." };
+  }
+
+  if (pelada.status === "finished") {
+    return {
+      error: "Pelada finalizada. Peça ao admin para reabrir se precisar corrigir.",
+    };
   }
 
   const { data: existing } = await supabase
@@ -452,15 +464,21 @@ export async function approvePlayerStat(
   const supabase = await createClient();
   const { data: stat } = await supabase
     .from("player_stats")
-    .select("*, pelada:peladas(team_id)")
+    .select("*, pelada:peladas(team_id, status)")
     .eq("id", statId)
     .maybeSingle();
 
   if (!stat) return { error: "Estatística não encontrada." };
 
-  const pelada = stat.pelada as { team_id: string } | null;
+  const pelada = stat.pelada as { team_id: string; status?: string } | null;
   if (!pelada || pelada.team_id !== team.id) {
     return { error: "Estatística não encontrada." };
+  }
+
+  if (pelada.status === "finished") {
+    return {
+      error: "Pelada finalizada. Reabra para aprovar ou rejeitar estatísticas.",
+    };
   }
 
   const { error } = await supabase
@@ -500,15 +518,21 @@ export async function rejectPlayerStat(
   const supabase = await createClient();
   const { data: stat } = await supabase
     .from("player_stats")
-    .select("*, pelada:peladas(team_id)")
+    .select("*, pelada:peladas(team_id, status)")
     .eq("id", statId)
     .maybeSingle();
 
   if (!stat) return { error: "Estatística não encontrada." };
 
-  const pelada = stat.pelada as { team_id: string } | null;
+  const pelada = stat.pelada as { team_id: string; status?: string } | null;
   if (!pelada || pelada.team_id !== team.id) {
     return { error: "Estatística não encontrada." };
+  }
+
+  if (pelada.status === "finished") {
+    return {
+      error: "Pelada finalizada. Reabra para aprovar ou rejeitar estatísticas.",
+    };
   }
 
   const { error } = await supabase
@@ -528,4 +552,95 @@ export async function rejectPlayerStat(
 
   revalidatePeladaPaths(stat.pelada_id);
   return { success: "Envio rejeitado. O jogador pode lançar de novo." };
+}
+
+export async function finalizePelada(
+  peladaId: string
+): Promise<PeladaActionResult> {
+  const user = await requireUser();
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canApproveStats) {
+    return { error: "Apenas admins ou o dono podem finalizar a pelada." };
+  }
+
+  const pelada = await getPeladaById(peladaId);
+  if (!pelada || pelada.team_id !== team.id) {
+    return { error: "Pelada não encontrada." };
+  }
+
+  if (pelada.status === "finished") {
+    return { error: "Esta pelada já está finalizada." };
+  }
+
+  const supabase = await createClient();
+  const { count: pendingCount } = await supabase
+    .from("player_stats")
+    .select("*", { count: "exact", head: true })
+    .eq("pelada_id", peladaId)
+    .eq("status", "pending");
+
+  if ((pendingCount ?? 0) > 0) {
+    return {
+      error: `Ainda há ${pendingCount} estatística(s) pendente(s). Aprove ou rejeite antes de finalizar.`,
+    };
+  }
+
+  const { error } = await supabase
+    .from("peladas")
+    .update({
+      status: "finished",
+      finished_at: new Date().toISOString(),
+      finished_by: user.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", peladaId)
+    .eq("team_id", team.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePeladaPaths(peladaId);
+  return { success: "Pelada finalizada! As stats entraram no ranking." };
+}
+
+export async function reopenPelada(
+  peladaId: string
+): Promise<PeladaActionResult> {
+  const { team, role } = await getDashboardContext();
+  if (!team) return { error: "Você não está em um grupo." };
+
+  const permissions = getTeamPermissions(role);
+  if (!permissions.canApproveStats) {
+    return { error: "Apenas admins ou o dono podem reabrir a pelada." };
+  }
+
+  const pelada = await getPeladaById(peladaId);
+  if (!pelada || pelada.team_id !== team.id) {
+    return { error: "Pelada não encontrada." };
+  }
+
+  if (pelada.status !== "finished") {
+    return { error: "Esta pelada já está aberta." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("peladas")
+    .update({
+      status: "open",
+      finished_at: null,
+      finished_by: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", peladaId)
+    .eq("team_id", team.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePeladaPaths(peladaId);
+  return {
+    success: "Pelada reaberta. As stats saíram do ranking até finalizar de novo.",
+  };
 }

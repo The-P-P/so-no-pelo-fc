@@ -4,6 +4,7 @@ import { ArrowLeft, Radio } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { StatBoard } from "@/components/peladas/stat-board";
 import { PendingStatsBoard } from "@/components/peladas/pending-stats-board";
+import { FinalizePeladaCard } from "@/components/peladas/finalize-pelada-card";
 import { getDashboardContext } from "@/lib/auth";
 import {
   getPeladaById,
@@ -15,7 +16,7 @@ import { EditPeladaCard } from "@/components/peladas/edit-pelada-card";
 import { getTeamDistribution } from "@/lib/actions/team-distribution-actions";
 import { DeletePeladaForm } from "@/components/peladas/delete-pelada-form";
 import { getPeladaSubtitle, getPeladaTitle } from "@/lib/peladas";
-import { getTeamPermissions } from "@/types";
+import { getTeamPermissions, PELADA_STATUS_LABELS } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,6 +42,8 @@ export default async function PeladaDetailPage({
   if (!pelada || pelada.team_id !== team.id) notFound();
 
   const permissions = getTeamPermissions(role);
+  const peladaStatus = pelada.status ?? "open";
+  const isFinished = peladaStatus === "finished";
   const [participants, stats, teamDistribution] = await Promise.all([
     getParticipants(team.id),
     getPeladaStats(id),
@@ -70,51 +73,76 @@ export default async function PeladaDetailPage({
       />
 
       <div className="space-y-6 p-6">
-        <div className="flex justify-end">
-          <Button asChild className="gap-2">
-            <Link href={`/dashboard/peladas/${id}/ao-vivo`}>
-              <Radio className="h-4 w-4" />
-              Modo ao vivo
-            </Link>
-          </Button>
+        {(permissions.canApproveStats || permissions.isOwner) && (
+          <FinalizePeladaCard
+            peladaId={id}
+            status={peladaStatus}
+            pendingCount={pendingStats.length}
+          />
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span
+            className={
+              isFinished
+                ? "rounded-full bg-primary/15 px-2.5 py-1 text-xs font-medium text-primary"
+                : "rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+            }
+          >
+            {PELADA_STATUS_LABELS[peladaStatus]}
+          </span>
+
+          {!isFinished && (
+            <Button asChild className="gap-2">
+              <Link href={`/dashboard/peladas/${id}/ao-vivo`}>
+                <Radio className="h-4 w-4" />
+                Modo ao vivo
+              </Link>
+            </Button>
+          )}
         </div>
 
-        {permissions.canCreatePelada && <EditPeladaCard pelada={pelada} />}
+        {permissions.canCreatePelada && !isFinished && (
+          <EditPeladaCard pelada={pelada} />
+        )}
 
         {teamDistribution && (
           <TeamDistributionCard
             peladaId={id}
             distribution={teamDistribution}
-            canManage={permissions.canApproveStats}
+            canManage={permissions.canApproveStats && !isFinished}
           />
         )}
 
-        {permissions.canApproveStats && pendingStats.length > 0 && (
-          <Card className="border-amber-500/30">
-            <CardHeader>
-              <CardTitle className="text-base">
-                Aprovações pendentes ({pendingStats.length})
-              </CardTitle>
-              <CardDescription>
-                Jogadores enviaram stats — revise antes de ir pro ranking
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PendingStatsBoard
-                pendingStats={pendingStats}
-                participants={participants}
-              />
-            </CardContent>
-          </Card>
-        )}
+        {permissions.canApproveStats &&
+          !isFinished &&
+          pendingStats.length > 0 && (
+            <Card className="border-amber-500/30">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Aprovações pendentes ({pendingStats.length})
+                </CardTitle>
+                <CardDescription>
+                  Jogadores enviaram stats — revise antes de finalizar
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PendingStatsBoard
+                  pendingStats={pendingStats}
+                  participants={participants}
+                />
+              </CardContent>
+            </Card>
+          )}
 
         {permissions.canApproveStats ? (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Estatísticas (admin)</CardTitle>
               <CardDescription>
-                Use +1 para registrar e −1 para corrigir as estatísticas dos
-                jogadores.
+                {isFinished
+                  ? "Pelada finalizada — estatísticas somente leitura."
+                  : "Use +1 para registrar e −1 para corrigir. Finalize para entrar no ranking."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -128,6 +156,7 @@ export default async function PeladaDetailPage({
                   participants={participants}
                   stats={stats}
                   mode="admin"
+                  readOnly={isFinished}
                 />
               )}
             </CardContent>
@@ -137,7 +166,9 @@ export default async function PeladaDetailPage({
             <CardHeader>
               <CardTitle className="text-base">Minhas estatísticas</CardTitle>
               <CardDescription>
-                Lance suas stats — o admin aprova antes de contar no ranking
+                {isFinished
+                  ? "Pelada finalizada — estatísticas somente leitura."
+                  : "Lance suas stats — o admin aprova antes de finalizar e contar no ranking"}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -147,6 +178,7 @@ export default async function PeladaDetailPage({
                   participants={[ownParticipant]}
                   stats={stats}
                   mode="player"
+                  readOnly={isFinished}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">

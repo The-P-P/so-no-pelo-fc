@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import {
   decrementOwnStat,
   decrementStat,
@@ -25,6 +24,7 @@ interface StatBoardProps {
   participants: Participant[];
   stats: PlayerStat[];
   mode: "admin" | "player";
+  readOnly?: boolean;
 }
 
 function getPlayerStat(
@@ -53,6 +53,7 @@ function StatButton({
   field,
   value,
   mode,
+  readOnly,
   onError,
 }: {
   peladaId: string;
@@ -60,18 +61,26 @@ function StatButton({
   field: StatField;
   value: number;
   mode: "admin" | "player";
+  readOnly?: boolean;
   onError: (message: string) => void;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [localValue, setLocalValue] = useState(value);
+  const [inFlight, setInFlight] = useState(0);
 
   useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
+    // Keep server value when no optimistic edits are in flight
+    if (inFlight === 0) {
+      setLocalValue(value);
+    }
+  }, [value, inFlight]);
 
   function handleAdjust(delta: 1 | -1) {
+    if (readOnly) return;
+    if (delta === -1 && localValue <= 0) return;
+
     setLocalValue((current) => current + delta);
+    setInFlight((n) => n + 1);
 
     startTransition(async () => {
       let result;
@@ -87,13 +96,24 @@ function StatButton({
           field
         );
       }
+      setInFlight((n) => n - 1);
       if (result.error) {
         setLocalValue((current) => current - delta);
         onError(result.error);
-      } else {
-        router.refresh();
       }
     });
+  }
+
+  if (readOnly) {
+    return (
+      <div className="flex flex-col items-center gap-0.5 rounded-lg border border-border p-1.5">
+        <span className="text-xs">{STAT_EMOJIS[field]}</span>
+        <span className="text-center text-[10px] leading-tight text-muted-foreground">
+          {STAT_LABELS[field]}
+        </span>
+        <span className="text-sm font-bold">{localValue}</span>
+      </div>
+    );
   }
 
   return (
@@ -111,7 +131,7 @@ function StatButton({
           size="sm"
           className="h-7 px-1 text-xs"
           onClick={() => handleAdjust(-1)}
-          disabled={pending || localValue <= 0}
+          disabled={localValue <= 0}
         >
           −1
         </Button>
@@ -120,7 +140,6 @@ function StatButton({
           size="sm"
           className="h-7 px-1 text-xs text-primary"
           onClick={() => handleAdjust(1)}
-          disabled={pending}
         >
           +1
         </Button>
@@ -134,6 +153,7 @@ export function StatBoard({
   participants,
   stats,
   mode,
+  readOnly = false,
 }: StatBoardProps) {
   const [error, setError] = useState<string | null>(null);
   const fields: (BoardField | StatField)[] =
@@ -197,6 +217,7 @@ export function StatBoard({
                   field={field}
                   value={getStatValue(stats, participant, field)}
                   mode={mode}
+                  readOnly={readOnly}
                   onError={setError}
                 />
               ))}

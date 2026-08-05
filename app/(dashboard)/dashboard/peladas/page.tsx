@@ -81,9 +81,22 @@ export default async function PeladasPage() {
                 >
                   <Link href={`/dashboard/peladas/${pelada.id}`}>
                     <div className="min-w-0 flex-1 text-left">
-                      <p className="break-words font-medium">
-                        {getPeladaTitle(pelada)}
-                      </p>
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <p className="break-words font-medium">
+                          {getPeladaTitle(pelada)}
+                        </p>
+                        <span
+                          className={
+                            pelada.status === "finished"
+                              ? "rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary"
+                              : "rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
+                          }
+                        >
+                          {pelada.status === "finished"
+                            ? "Finalizada"
+                            : "Aberta"}
+                        </span>
+                      </div>
                       <p className="break-words text-xs text-muted-foreground">
                         {getPeladaSubtitle(pelada)}
                       </p>
