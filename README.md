@@ -29,7 +29,7 @@ npm install
 5. Em **Authentication → Providers**, desabilite **Phone** (evita SMS pago via Twilio)
 6. Em **Authentication → URL Configuration**, defina **Site URL** como `http://localhost:3000` (dev) ou sua URL da Vercel (prod)
 7. (Opcional) **Confirm email**: desligue em Providers → Email se quiser cadastro instantâneo sem confirmar e-mail
-8. Execute a migration `supabase/migrations/018_push_subscriptions.sql` (subscriptions de push)
+8. Execute a migration `supabase/migrations/020_push_subscriptions.sql` (subscriptions de push)
 
 ### Login grátis (sem SMS)
 
