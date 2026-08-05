@@ -56,7 +56,6 @@ export type TeamDistribution = {
 export type RankingEntry = RankingGeral & {
   displayName: string;
   score: number;
-  total_peladas: number;
 };
 
 // Tipos compostos (joins frequentes)
