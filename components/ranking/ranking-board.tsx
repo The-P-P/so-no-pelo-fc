@@ -12,8 +12,7 @@ type RankingTab =
   | "goals"
   | "assists"
   | "god_saves"
-  | "vacilos"
-  | "attendance";
+  | "vacilos";
 
 const TABS: { id: RankingTab; label: string; emoji?: string }[] = [
   { id: "score", label: "Pontuação", emoji: "🏆" },
@@ -21,7 +20,6 @@ const TABS: { id: RankingTab; label: string; emoji?: string }[] = [
   { id: "assists", label: "Assist.", emoji: STAT_EMOJIS.assists },
   { id: "god_saves", label: "God Save", emoji: STAT_EMOJIS.god_saves },
   { id: "vacilos", label: "Vacilos", emoji: STAT_EMOJIS.vacilos },
-  { id: "attendance", label: "Presença", emoji: "📅" },
 ];
 
 const DETAIL_STATS = [
@@ -57,18 +55,10 @@ function getValue(entry: RankingEntry, tab: RankingTab): number {
       return Number(entry.total_god_saves);
     case "vacilos":
       return Number(entry.total_vacilos);
-    case "attendance":
-      return Number(entry.peladas_jogadas);
   }
 }
 
 function formatValue(entry: RankingEntry, tab: RankingTab): string {
-  if (tab === "attendance" && entry.total_peladas > 0) {
-    const pct = Math.round(
-      (Number(entry.peladas_jogadas) / entry.total_peladas) * 100
-    );
-    return `${entry.peladas_jogadas}/${entry.total_peladas} (${pct}%)`;
-  }
   if (tab === "score") {
     return entry.score > 0 ? `+${entry.score}` : String(entry.score);
   }
@@ -80,11 +70,6 @@ function sortEntries(entries: RankingEntry[], tab: RankingTab): RankingEntry[] {
   if (tab === "vacilos") {
     return sorted.sort(
       (a, b) => Number(b.total_vacilos) - Number(a.total_vacilos)
-    );
-  }
-  if (tab === "attendance") {
-    return sorted.sort(
-      (a, b) => Number(b.peladas_jogadas) - Number(a.peladas_jogadas)
     );
   }
   return sorted.sort((a, b) => getValue(b, tab) - getValue(a, tab));
@@ -149,9 +134,9 @@ export function RankingBoard({ entries }: RankingBoardProps) {
         ))}
       </div>
 
-      {!hasData && tab !== "attendance" && (
+      {!hasData && (
         <p className="text-sm text-muted-foreground">
-          Ninguém pontuou ainda. Marca presença nas peladas e lança as stats!
+          Ninguém pontuou ainda. Lance as stats nas peladas!
         </p>
       )}
 
@@ -161,12 +146,6 @@ export function RankingBoard({ entries }: RankingBoardProps) {
           const value = getValue(entry, tab);
           const isTop3 = index < 3 && value > 0;
           const isExpanded = expandedKey === entryKey;
-          const attendancePct =
-            entry.total_peladas > 0
-              ? Math.round(
-                  (Number(entry.peladas_jogadas) / entry.total_peladas) * 100
-                )
-              : 0;
 
           return (
             <div
@@ -246,19 +225,6 @@ export function RankingBoard({ entries }: RankingBoardProps) {
                         </p>
                       </div>
                     ))}
-                    <div className="rounded-md border border-border/60 bg-background/50 px-3 py-2">
-                      <p className="text-xs text-muted-foreground">
-                        📅 Presença
-                      </p>
-                      <p className="text-lg font-bold tabular-nums">
-                        {entry.peladas_jogadas}/{entry.total_peladas}
-                      </p>
-                      {entry.total_peladas > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          {attendancePct}%
-                        </p>
-                      )}
-                    </div>
                     <div className="rounded-md border border-border/60 bg-background/50 px-3 py-2">
                       <p className="text-xs text-muted-foreground">
                         🏆 Pontuação

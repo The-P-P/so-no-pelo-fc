@@ -61,7 +61,7 @@ export function PendingStatsBoard({
         const participant = participants.find(
           (p) => p.type === "member" && p.id === stat.user_id
         );
-        const name = participant?.nickname ?? participant?.displayName ?? "Jogador";
+        const name = participant?.displayName ?? "Jogador";
         const busy = isPending && pendingId === stat.id;
 
         return (

@@ -9,20 +9,13 @@ import {
   incrementStat,
 } from "@/lib/actions/pelada-actions";
 import {
-  decrementVictory,
-  incrementVictory,
-} from "@/lib/actions/ranked-actions";
-import {
   ADMIN_BOARD_FIELDS,
-  BOARD_EMOJIS,
-  BOARD_LABELS,
   PLAYER_BOARD_FIELDS,
   STAT_EMOJIS,
   STAT_LABELS,
   type BoardField,
   type StatField,
 } from "@/lib/stats";
-import { VICTORY_PDL } from "@/lib/ranked";
 import { Button } from "@/components/ui/button";
 import { STAT_STATUS_LABELS, type Participant, type PlayerStat } from "@/types";
 import { cn } from "@/lib/utils";
@@ -31,7 +24,6 @@ interface StatBoardProps {
   peladaId: string;
   participants: Participant[];
   stats: PlayerStat[];
-  victoryCounts?: Record<string, number>;
   mode: "admin" | "player";
 }
 
@@ -137,130 +129,10 @@ function StatButton({
   );
 }
 
-function VictoryButton({
-  peladaId,
-  participant,
-  value,
-  onError,
-}: {
-  peladaId: string;
-  participant: Participant;
-  value: number;
-  onError: (message: string) => void;
-}) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [localValue, setLocalValue] = useState(value);
-  const disabled = participant.type === "fictional";
-
-  useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
-
-  function handleAdjust(delta: 1 | -1) {
-    if (disabled) return;
-
-    setLocalValue((current) => current + delta);
-
-    startTransition(async () => {
-      const action = delta === 1 ? incrementVictory : decrementVictory;
-      const result = await action(peladaId, participant.id);
-      if (result.error) {
-        setLocalValue((current) => current - delta);
-        onError(result.error);
-      } else {
-        router.refresh();
-      }
-    });
-  }
-
-  return (
-    <div className="flex flex-col gap-1 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-1.5">
-      <div className="flex flex-col items-center gap-0.5">
-        <span className="text-xs">{BOARD_EMOJIS.victories}</span>
-        <span className="text-center text-[10px] leading-tight text-muted-foreground">
-          {BOARD_LABELS.victories}
-        </span>
-        <span className="text-sm font-bold">{localValue}</span>
-        {localValue > 0 && (
-          <span className="text-[9px] text-yellow-700 dark:text-yellow-400">
-            +{localValue * VICTORY_PDL} PDL
-          </span>
-        )}
-      </div>
-      <div className="grid grid-cols-2 gap-1">
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 px-1 text-xs"
-          onClick={() => handleAdjust(-1)}
-          disabled={pending || disabled || localValue <= 0}
-        >
-          −1
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 px-1 text-xs text-yellow-700 dark:text-yellow-400"
-          onClick={() => handleAdjust(1)}
-          disabled={pending || disabled}
-        >
-          +1
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function BoardCell({
-  peladaId,
-  participant,
-  field,
-  stats,
-  victoryCounts,
-  mode,
-  onError,
-}: {
-  peladaId: string;
-  participant: Participant;
-  field: BoardField | StatField;
-  stats: PlayerStat[];
-  victoryCounts: Record<string, number>;
-  mode: "admin" | "player";
-  onError: (message: string) => void;
-}) {
-  if (field === "victories") {
-    const value =
-      participant.type === "member"
-        ? (victoryCounts[participant.id] ?? 0)
-        : 0;
-    return (
-      <VictoryButton
-        peladaId={peladaId}
-        participant={participant}
-        value={value}
-        onError={onError}
-      />
-    );
-  }
-
-  return (
-    <StatButton
-      peladaId={peladaId}
-      participant={participant}
-      field={field}
-      value={getStatValue(stats, participant, field)}
-      mode={mode}
-      onError={onError}
-    />
-  );
-}
-
 export function StatBoard({
   peladaId,
   participants,
   stats,
-  victoryCounts = {},
   mode,
 }: StatBoardProps) {
   const [error, setError] = useState<string | null>(null);
@@ -271,7 +143,7 @@ export function StatBoard({
     return (
       <p className="text-sm text-muted-foreground">
         {mode === "player"
-          ? "Confirme sua presença para lançar suas estatísticas."
+          ? "Você não faz parte do elenco deste grupo."
           : "Nenhum participante no elenco. Adicione membros ou jogadores fictícios em Membros."}
       </p>
     );
@@ -285,7 +157,7 @@ export function StatBoard({
         </p>
       )}
       {participants.map((participant) => {
-        const displayName = participant.nickname ?? participant.displayName;
+        const displayName = participant.displayName ?? "Jogador";
         const playerStat = getPlayerStat(stats, participant);
         const isPending = playerStat?.status === "pending";
         const isApproved = playerStat?.status === "approved";
@@ -316,15 +188,14 @@ export function StatBoard({
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {fields.map((field) => (
-                <BoardCell
+                <StatButton
                   key={field}
                   peladaId={peladaId}
                   participant={participant}
                   field={field}
-                  stats={stats}
-                  victoryCounts={victoryCounts}
+                  value={getStatValue(stats, participant, field)}
                   mode={mode}
                   onError={setError}
                 />

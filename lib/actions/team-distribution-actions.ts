@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getDashboardContext, requireUser } from "@/lib/auth";
 import { getPeladaById, getParticipants } from "@/lib/actions/pelada-actions";
-import { getPresentUserIds } from "@/lib/actions/attendance-actions";
 import { getRankingGeral } from "@/lib/actions/ranking-actions";
 import {
   balanceTeams,
@@ -65,18 +64,13 @@ async function requireAdminPelada(peladaId: string) {
 }
 
 async function getAssignableParticipants(
-  teamId: string,
-  peladaId: string
+  teamId: string
 ): Promise<AssignableParticipant[]> {
-  const [participants, presentUserIds] = await Promise.all([
-    getParticipants(teamId),
-    getPresentUserIds(peladaId),
-  ]);
-  const presentSet = new Set(presentUserIds);
+  const participants = await getParticipants(teamId);
 
   const supabase = await createClient();
   const memberIds = participants
-    .filter((p) => p.type === "member" && presentSet.has(p.id))
+    .filter((p) => p.type === "member")
     .map((p) => p.id);
 
   let avatarMap = new Map<string, string | null>();
@@ -91,12 +85,10 @@ async function getAssignableParticipants(
     );
   }
 
-  return participants
-    .filter((p) => p.type === "fictional" || presentSet.has(p.id))
-    .map((p) => ({
-      ...p,
-      avatarUrl: p.type === "member" ? avatarMap.get(p.id) ?? null : null,
-    }));
+  return participants.map((p) => ({
+    ...p,
+    avatarUrl: p.type === "member" ? avatarMap.get(p.id) ?? null : null,
+  }));
 }
 
 function buildPlayerFromRanking(
@@ -113,10 +105,7 @@ function buildPlayerFromRanking(
   return {
     participantId: participant.id,
     participantType: participant.type,
-    displayName:
-      participant.nickname ??
-      ranking?.displayName ??
-      participant.displayName,
+    displayName: participant.displayName,
     avatarUrl: participant.avatarUrl,
     skill: calculateAvgSkill(score, peladasJogadas),
     peladasJogadas,
@@ -306,7 +295,7 @@ export async function getTeamDistribution(
     { data: draft },
     { data: assignments },
   ] = await Promise.all([
-    getAssignableParticipants(team.id, peladaId),
+    getAssignableParticipants(team.id),
     getRankingGeral(team.id),
     supabase
       .from("pelada_team_drafts")
@@ -375,14 +364,14 @@ export async function generateTeamDistribution(
   }
 
   const [assignable, ranking] = await Promise.all([
-    getAssignableParticipants(team.id, peladaId),
+    getAssignableParticipants(team.id),
     getRankingGeral(team.id),
   ]);
 
   if (assignable.length < 2) {
     return {
       error:
-        "É necessário pelo menos 2 jogadores confirmados para formar times.",
+        "É necessário pelo menos 2 jogadores no grupo para formar times.",
     };
   }
 

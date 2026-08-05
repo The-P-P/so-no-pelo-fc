@@ -34,15 +34,6 @@ export type Participant = {
   nickname: string | null;
 };
 
-export type AttendanceMember = {
-  userId: string;
-  displayName: string;
-  nickname: string | null;
-  avatarUrl: string | null;
-  present: boolean;
-  hasMarked: boolean;
-};
-
 export type TeamDistributionPlayer = {
   participantId: string;
   participantType: ParticipantType;

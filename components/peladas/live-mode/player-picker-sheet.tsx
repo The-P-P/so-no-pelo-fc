@@ -7,8 +7,7 @@ import {
   incrementOwnStat,
   incrementStat,
 } from "@/lib/actions/pelada-actions";
-import { decrementVictory, incrementVictory } from "@/lib/actions/ranked-actions";
-import { STAT_EMOJIS, STAT_LABELS, BOARD_EMOJIS, type StatField } from "@/lib/stats";
+import { STAT_EMOJIS, STAT_LABELS, type StatField } from "@/lib/stats";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sheet,
@@ -19,7 +18,7 @@ import {
 import type { Participant } from "@/types";
 import { cn } from "@/lib/utils";
 
-export type PickerMode = StatField | "victory" | "remove_victory";
+export type PickerMode = StatField;
 
 interface PlayerPickerSheetProps {
   open: boolean;
@@ -41,16 +40,6 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-function getPickerTitle(mode: PickerMode) {
-  if (mode === "victory") {
-    return `${BOARD_EMOJIS.victories} Quem venceu?`;
-  }
-  if (mode === "remove_victory") {
-    return `${BOARD_EMOJIS.victories} Remover vitória de quem?`;
-  }
-  return `${STAT_EMOJIS[mode]} ${STAT_LABELS[mode]} — quem?`;
-}
-
 export function PlayerPickerSheet({
   open,
   onOpenChange,
@@ -64,20 +53,11 @@ export function PlayerPickerSheet({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const eligibleParticipants =
-    mode === "victory" || mode === "remove_victory"
-      ? participants.filter((p) => p.type === "member")
-      : participants;
-
   function handleSelect(participant: Participant) {
     startTransition(async () => {
       let result: { error?: string; success?: string };
 
-      if (mode === "victory") {
-        result = await incrementVictory(peladaId, participant.id);
-      } else if (mode === "remove_victory") {
-        result = await decrementVictory(peladaId, participant.id);
-      } else if (isAdmin) {
+      if (isAdmin) {
         result = await incrementStat(
           peladaId,
           participant.id,
@@ -103,7 +83,9 @@ export function PlayerPickerSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="max-h-[85vh] rounded-t-2xl px-4 pb-8">
         <SheetHeader className="pb-4 text-left">
-          <SheetTitle>{getPickerTitle(mode)}</SheetTitle>
+          <SheetTitle>
+            {STAT_EMOJIS[mode]} {STAT_LABELS[mode]} — quem?
+          </SheetTitle>
         </SheetHeader>
 
         {pending && (
@@ -114,9 +96,8 @@ export function PlayerPickerSheet({
         )}
 
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-          {eligibleParticipants.map((participant) => {
-            const displayName =
-              participant.nickname ?? participant.displayName;
+          {participants.map((participant) => {
+            const displayName = participant.displayName ?? "Jogador";
 
             return (
               <button
@@ -144,11 +125,9 @@ export function PlayerPickerSheet({
           })}
         </div>
 
-        {eligibleParticipants.length === 0 && (
+        {participants.length === 0 && (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            {mode === "victory" || mode === "remove_victory"
-              ? "Nenhum membro presente para marcar vitória."
-              : "Nenhum participante disponível."}
+            Nenhum participante disponível.
           </p>
         )}
       </SheetContent>
